@@ -1,15 +1,22 @@
 import { supabase } from '../lib/supabase'
 
 /**
- * BASE_URL preserva o subdiretorio do GitHub Pages
- * (usuario.github.io/nome-do-repo/). Com origin puro, o Google devolveria o
- * usuario para a raiz do dominio, fora do app.
+ * Deriva a URL de retorno da propria pagina em execucao, e nao de
+ * import.meta.env.BASE_URL: com base: './', o BASE_URL vale './' e
+ * new URL('./', origin) resolve para a raiz do dominio, perdendo o
+ * subdiretorio do GitHub Pages.
+ *
+ * location.pathname aqui e '/aventuras-inacabadas-gt/index.html' ou
+ * '/aventuras-inacabadas-gt/'. Cortar tudo depois da ultima barra deixa
+ * exatamente a pasta do app. O hash do HashRouter fica de fora de proposito:
+ * o Supabase compara a URL sem ele.
  *
  * Esta URL precisa estar cadastrada em
  * Supabase -> Authentication -> URL Configuration -> Redirect URLs.
  */
 function redirectUrl() {
-  return new URL(import.meta.env.BASE_URL, window.location.origin).href
+  const dir = window.location.pathname.replace(/[^/]*$/, '')
+  return `${window.location.origin}${dir}`
 }
 
 export async function signInWithGoogle() {
