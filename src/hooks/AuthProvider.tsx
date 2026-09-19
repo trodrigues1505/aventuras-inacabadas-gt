@@ -14,14 +14,20 @@ import { loadPlayer } from '../services/playerService'
 import { signOut as doSignOut } from '../services/authService'
 import type { PlayerState, Profile } from '../types/database'
 
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? ''
+
 type AuthValue = {
   ready: boolean
   session: Session | null
   profile: Profile | null
   playerState: PlayerState | null
+  isAdmin: boolean
   error: string | null
   retry: () => void
   signOut: () => Promise<void>
+  /** Substitui o estado após uma escrita já confirmada pelo servidor. */
+  applyPlayerState: (state: PlayerState) => void
+  applyProfile: (profile: Profile) => void
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -122,9 +128,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
   }, [])
 
+  const applyPlayerState = useCallback((state: PlayerState) => {
+    setPlayerState(state)
+  }, [])
+
+  const applyProfile = useCallback((next: Profile) => {
+    setProfile(next)
+  }, [])
+
+  /**
+   * isAdmin é conveniência de interface: decide o que desenhar, nunca
+   * o que pode ser lido. Quem autoriza de fato é a policy is_admin()
+   * no Postgres — forjar isto no cliente não revela dado nenhum.
+   */
+  const isAdmin = useMemo(
+    () =>
+      Boolean(
+        ADMIN_EMAIL &&
+          session?.user.email &&
+          session.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase(),
+      ),
+    [session],
+  )
+
   const value = useMemo<AuthValue>(
-    () => ({ ready, session, profile, playerState, error, retry, signOut }),
-    [ready, session, profile, playerState, error, retry, signOut],
+    () => ({
+      ready,
+      session,
+      profile,
+      playerState,
+      isAdmin,
+      error,
+      retry,
+      signOut,
+      applyPlayerState,
+      applyProfile,
+    }),
+    [
+      ready,
+      session,
+      profile,
+      playerState,
+      isAdmin,
+      error,
+      retry,
+      signOut,
+      applyPlayerState,
+      applyProfile,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

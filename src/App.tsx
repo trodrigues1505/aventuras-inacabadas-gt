@@ -1,11 +1,15 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './hooks/AuthProvider'
+import { GameProvider } from './hooks/GameProvider'
 import { FullScreenLoader } from './components/FullScreenLoader'
 import { Notice } from './components/Notice'
 import { Button } from './components/Button'
 import AppShell from './layouts/AppShell'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Worlds from './pages/Worlds'
+import Missions from './pages/Missions'
+import Admin from './pages/Admin'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -17,7 +21,7 @@ export default function App() {
   // login (ele ja esta autenticado) — mostre a falha real e deixe tentar de novo.
   if (session && error) {
     return (
-      <main className="min-h-dvh grid place-items-center px-6">
+      <main className="grid min-h-dvh place-items-center px-6">
         <div className="w-full max-w-md">
           <Notice
             title="Seu progresso nao carregou"
@@ -42,12 +46,17 @@ export default function App() {
   if (!profile) return <FullScreenLoader label="Preparando seu perfil" />
 
   return (
-    <Routes>
-      <Route element={<AppShell />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/configuracoes" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <GameProvider>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/mundos" element={<Worlds />} />
+          <Route path="/missoes" element={<Missions />} />
+          <Route path="/painel" element={<Admin />} />
+          <Route path="/configuracoes" element={<Settings />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </GameProvider>
   )
 }

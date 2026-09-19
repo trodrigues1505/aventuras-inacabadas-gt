@@ -4,8 +4,8 @@ import {
   LayoutDashboard,
   Lock,
   Radar,
-  Route,
   Settings,
+  Shield,
   TrendingUp,
   Users,
 } from 'lucide-react'
@@ -13,46 +13,54 @@ import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
 import { BRAND } from '../data/brand'
 
-type Item = { to: string; label: string; icon: LucideIcon; ready: boolean }
+type Item = {
+  to: string
+  label: string
+  icon: LucideIcon
+  ready: boolean
+  adminOnly?: boolean
+}
 
 const ITEMS: Item[] = [
   { to: '/', label: 'Ponte', icon: LayoutDashboard, ready: true },
-  { to: '/mundos', label: 'Mundos', icon: Globe2, ready: false },
-  { to: '/missoes', label: 'Missoes', icon: Radar, ready: false },
+  { to: '/mundos', label: 'Mundos', icon: Globe2, ready: true },
+  { to: '/missoes', label: 'Missoes', icon: Radar, ready: true },
   { to: '/tripulacao', label: 'Tripulacao', icon: Users, ready: false },
-  { to: '/setores', label: 'Setores', icon: Route, ready: false },
   { to: '/registro', label: 'Registro', icon: TrendingUp, ready: false },
+  { to: '/painel', label: 'Painel', icon: Shield, ready: true, adminOnly: true },
   { to: '/configuracoes', label: 'Configuracoes', icon: Settings, ready: true },
 ]
 
-const MOBILE = ITEMS.filter((i) =>
-  ['/', '/mundos', '/missoes', '/configuracoes'].includes(i.to),
-)
+const MOBILE_ROUTES = ['/', '/mundos', '/missoes', '/configuracoes']
 
 export default function AppShell() {
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
+  const items = ITEMS.filter((i) => !i.adminOnly || isAdmin)
+  const mobile = items.filter((i) => MOBILE_ROUTES.includes(i.to))
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr]">
-      <aside className="hidden md:flex flex-col gap-8 border-r border-line/60 bg-surface/50 px-5 py-7">
+      {/* A navegação mantém o azul profundo da nave enquanto o conteúdo
+          fica claro: o casco em volta, a janela no meio. */}
+      <aside className="hidden flex-col gap-8 bg-hull px-5 py-7 md:flex">
         <div>
-          <p className="display text-[19px] leading-tight text-text">
+          <p className="display text-[19px] leading-tight text-hull-text">
             {BRAND.appNameLines[0]}
             <br />
             {BRAND.appNameLines[1]}
           </p>
-          <p className="text-[12px] text-faint mt-1.5">{BRAND.ship}</p>
+          <p className="mt-1.5 text-[12px] text-hull-faint">{BRAND.ship}</p>
         </div>
 
         <nav className="flex flex-col gap-1">
-          {ITEMS.map((item) => (
+          {items.map((item) => (
             <SideLink key={item.to} item={item} />
           ))}
         </nav>
 
-        <div className="mt-auto flex items-center gap-3 px-2">
+        <div className="mt-auto flex items-center gap-3 rounded-[10px] px-2 py-1.5">
           <Avatar url={profile?.avatar_url} name={profile?.display_name} />
-          <span className="text-[13px] text-muted truncate">
+          <span className="truncate text-[13px] text-hull-muted">
             {profile?.display_name ?? 'Aventureiro'}
           </span>
         </div>
@@ -62,17 +70,16 @@ export default function AppShell() {
         <Outlet />
       </div>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 border-t border-line/70 bg-surface/95 backdrop-blur px-2 pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <ul className="grid grid-cols-4">
-          {MOBILE.map(({ to, label, icon: Icon, ready }) => (
+          {mobile.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
-                aria-disabled={!ready || undefined}
-                onClick={(e) => !ready && e.preventDefault()}
+                end={to === '/'}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-1 py-3 text-[11px] transition-colors duration-150 ${
-                    isActive && ready ? 'text-azure' : ready ? 'text-muted' : 'text-faint'
+                    isActive ? 'text-azure' : 'text-muted'
                   }`
                 }
               >
@@ -93,7 +100,7 @@ function SideLink({ item }: { item: Item }) {
   if (!ready) {
     return (
       <span
-        className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] text-faint cursor-default select-none"
+        className="flex cursor-default select-none items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] text-hull-faint"
         title="Disponivel nas proximas fases"
       >
         <Icon size={17} aria-hidden />
@@ -106,16 +113,27 @@ function SideLink({ item }: { item: Item }) {
   return (
     <NavLink
       to={to}
+      end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors duration-150 ${
+        `relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors duration-150 ${
           isActive
-            ? 'bg-interactive text-text'
-            : 'text-muted hover:text-text hover:bg-raised'
+            ? 'bg-hull-raised text-hull-text'
+            : 'text-hull-muted hover:bg-hull-raised/60 hover:text-hull-text'
         }`
       }
     >
-      <Icon size={17} aria-hidden />
-      {label}
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <span
+              className="absolute left-0 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-r-full bg-azure"
+              aria-hidden
+            />
+          )}
+          <Icon size={17} aria-hidden />
+          {label}
+        </>
+      )}
     </NavLink>
   )
 }
@@ -136,14 +154,14 @@ export function Avatar({
         alt=""
         width={size}
         height={size}
-        className="rounded-full object-cover shrink-0 border border-line"
+        className="shrink-0 rounded-full border border-line object-cover"
         style={{ width: size, height: size }}
       />
     )
   }
   return (
     <span
-      className="rounded-full grid place-items-center bg-interactive text-azure font-semibold shrink-0"
+      className="grid shrink-0 place-items-center rounded-full bg-interactive font-semibold text-azure"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
       aria-hidden
     >

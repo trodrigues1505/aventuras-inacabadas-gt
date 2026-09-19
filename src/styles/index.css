@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────
+   RUMO ABERTO — design tokens
+   Light-first. A ponte é clara e iluminada; a profundidade vem
+   de camadas de superfície e de uma borda discreta, nunca de
+   sombras pesadas. Os nomes dos tokens são os mesmos da versão
+   escura, então nenhum componente precisou mudar.
+   ────────────────────────────────────────────────────────── */
+@theme {
+  --color-ink: #eef1f7;          /* background — fora da nave */
+  --color-surface: #ffffff;      /* superfície */
+  --color-raised: #f5f7fc;       /* superfície elevada */
+  --color-interactive: #e8edfa;  /* superfície interativa (hover/ativo) */
+  --color-line: #dfe4f0;         /* borda discreta */
+
+  --color-text: #101728;
+  --color-muted: #59627a;
+  --color-faint: #99a1b8;
+
+  --color-azure: #3f63e8;        /* primária — instrumentos */
+  --color-azure-deep: #2b47b8;
+  --color-ember: #c47d10;        /* dados de exploração / recompensa */
+  --color-good: #128a62;
+  --color-warn: #b5710d;
+  --color-bad: #d33b48;
+
+  /* A sidebar mantém o azul profundo da ponte: a navegação é o
+     casco, o conteúdo é a janela. */
+  --color-hull: #121a2c;
+  --color-hull-raised: #1c2740;
+  --color-hull-text: #e7edf6;
+  --color-hull-muted: #8c9ab5;
+  --color-hull-faint: #5d6a85;
+
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Brilho ambiente da tela de entrada. No claro ele vira um véu
+   frio, quase imperceptível — sugestão de luz, não decoração. */
+.aura {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(48rem 32rem at 18% -12%, rgba(63, 99, 232, 0.10), transparent 70%),
+    radial-gradient(34rem 26rem at 92% 6%, rgba(43, 71, 184, 0.07), transparent 72%);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-azure);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+::selection {
+  background: rgba(63, 99, 232, 0.18);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Elevação: usada só onde a hierarquia precisa de um degrau a
+   mais que a borda já não dá — cards de conteúdo e modais. */
+.lift {
+  box-shadow:
+    0 1px 2px rgba(16, 23, 40, 0.04),
+    0 4px 12px rgba(16, 23, 40, 0.05);
+}
+
+.lift-lg {
+  box-shadow:
+    0 2px 4px rgba(16, 23, 40, 0.05),
+    0 16px 48px rgba(16, 23, 40, 0.14);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 720ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
