@@ -89,9 +89,11 @@ export default function Missions() {
     if (!playerState || pending) return
     setPending(mission.id)
     try {
-      const result = await toggleMission(mission, playerState)
+      const result = await toggleMission(mission, playerState, missions)
       putMission(result.mission)
       applyPlayerState(result.state)
+
+      if (result.crewNote) toast('info', result.crewNote)
 
       if (result.leveledUpTo) {
         toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcanca mais longe.`)

@@ -14,6 +14,8 @@ export type PlayerState = {
   level: number
   xp: number
   currency: number
+  /** Tripulante escolhido. Null enquanto o posto nao foi definido. */
+  crew_id: string | null
   created_at: string
   updated_at: string
 }

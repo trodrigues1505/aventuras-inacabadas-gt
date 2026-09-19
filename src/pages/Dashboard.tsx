@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Coins, Globe2, Radar, Target, TrendingUp } from 'lucide-react'
+import { ArrowRight, Coins, Globe2, Radar, Target, TrendingUp, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { Avatar } from '../layouts/AppShell'
 import { EmptyState } from '../components/Bits'
 import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
 import { ACCENT, getXpRequiredForLevel } from '../data/gameConfig'
+import { findCrew } from '../data/crew'
 import { BRAND } from '../data/brand'
 
 export default function Dashboard() {
@@ -45,6 +46,7 @@ export default function Dashboard() {
 
   if (!profile || !playerState) return null
 
+  const crew = findCrew(playerState.crew_id)
   const required = getXpRequiredForLevel(playerState.level)
   const pct = Math.min(100, Math.round((playerState.xp / required) * 100))
   const nome = profile.display_name ?? 'Aventureiro'
@@ -63,6 +65,7 @@ export default function Dashboard() {
               </h1>
               <p className="text-[13px] text-muted">
                 {BRAND.ship} · autonomia {playerState.level}
+                {crew && ` · ${crew.name} no posto`}
               </p>
             </div>
           </div>
@@ -99,6 +102,25 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* Aparece só enquanto o posto está vazio. Uma vez escolhido,
+          some para sempre em vez de virar um card permanente. */}
+      {!crew && (
+        <Link
+          to="/tripulacao"
+          className="rise mb-6 flex items-center gap-3 rounded-[14px] border border-azure/30 bg-azure/[0.06] px-5 py-4 transition-colors duration-150 hover:bg-azure/10"
+          style={{ animationDelay: '30ms' }}
+        >
+          <Users size={17} className="shrink-0 text-azure" aria-hidden />
+          <p className="flex-1 text-[13px] text-text">
+            O posto ao seu lado na ponte esta vazio.{' '}
+            <span className="text-muted">
+              Escolher um tripulante muda o que voce ganha por missao.
+            </span>
+          </p>
+          <ArrowRight size={15} className="shrink-0 text-azure" aria-hidden />
+        </Link>
+      )}
 
       <div
         className="rise mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"

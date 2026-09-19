@@ -25,7 +25,7 @@ const ITEMS: Item[] = [
   { to: '/', label: 'Ponte', icon: LayoutDashboard, ready: true },
   { to: '/planetas', label: 'Planetas', icon: Globe2, ready: true },
   { to: '/missoes', label: 'Missoes', icon: Radar, ready: true },
-  { to: '/tripulacao', label: 'Tripulacao', icon: Users, ready: false },
+  { to: '/tripulacao', label: 'Tripulacao', icon: Users, ready: true },
   { to: '/registro', label: 'Registro', icon: TrendingUp, ready: false },
   { to: '/painel', label: 'Painel', icon: Shield, ready: true, adminOnly: true },
   { to: '/configuracoes', label: 'Configuracoes', icon: Settings, ready: true },

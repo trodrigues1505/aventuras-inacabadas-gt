@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Planets from './pages/Planets'
 import Missions from './pages/Missions'
+import Crew from './pages/Crew'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/planetas" element={<Planets />} />
           <Route path="/missoes" element={<Missions />} />
+          <Route path="/tripulacao" element={<Crew />} />
           <Route path="/painel" element={<Admin />} />
           <Route path="/configuracoes" element={<Settings />} />
         </Route>

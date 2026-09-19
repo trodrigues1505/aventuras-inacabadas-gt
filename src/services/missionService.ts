@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { Mission, PlayerState, Priority } from '../types/database'
 import { XP_BY_PRIORITY, getXpRequiredForLevel } from '../data/gameConfig'
+import { applyBonus } from '../data/crew'
 
 export type MissionDraft = {
   title: string
@@ -62,6 +63,8 @@ export type CompletionResult = {
   xpGained: number
   creditsGained: number
   leveledUpTo: number | null
+  /** Frase do tripulante quando o bonus dele entrou. */
+  crewNote: string | null
 }
 
 /**
@@ -75,6 +78,7 @@ export type CompletionResult = {
 export async function toggleMission(
   mission: Mission,
   state: PlayerState,
+  allMissions: Mission[] = [],
 ): Promise<CompletionResult> {
   const reopening = mission.status === 'done'
 
@@ -98,11 +102,22 @@ export async function toggleMission(
       xpGained: 0,
       creditsGained: 0,
       leveledUpTo: null,
+      crewNote: null,
     }
   }
 
-  const xpGained = XP_BY_PRIORITY[mission.priority]
-  const creditsGained = mission.reward
+  const baseXp = XP_BY_PRIORITY[mission.priority]
+  const baseCredits = mission.reward
+  const bonus = applyBonus(
+    state.crew_id,
+    mission,
+    baseXp,
+    baseCredits,
+    allMissions,
+  )
+
+  const xpGained = baseXp + bonus.xp
+  const creditsGained = baseCredits + bonus.credits
 
   let xp = state.xp + xpGained
   let level = state.level
@@ -129,5 +144,6 @@ export async function toggleMission(
     xpGained,
     creditsGained,
     leveledUpTo,
+    crewNote: bonus.note,
   }
 }
