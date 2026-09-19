@@ -23,7 +23,7 @@ type Item = {
 
 const ITEMS: Item[] = [
   { to: '/', label: 'Ponte', icon: LayoutDashboard, ready: true },
-  { to: '/mundos', label: 'Mundos', icon: Globe2, ready: true },
+  { to: '/planetas', label: 'Planetas', icon: Globe2, ready: true },
   { to: '/missoes', label: 'Missoes', icon: Radar, ready: true },
   { to: '/tripulacao', label: 'Tripulacao', icon: Users, ready: false },
   { to: '/registro', label: 'Registro', icon: TrendingUp, ready: false },
@@ -31,7 +31,7 @@ const ITEMS: Item[] = [
   { to: '/configuracoes', label: 'Configuracoes', icon: Settings, ready: true },
 ]
 
-const MOBILE_ROUTES = ['/', '/mundos', '/missoes', '/configuracoes']
+const MOBILE_ROUTES = ['/', '/planetas', '/missoes', '/configuracoes']
 
 export default function AppShell() {
   const { profile, isAdmin } = useAuth()

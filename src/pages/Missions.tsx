@@ -145,8 +145,8 @@ export default function Missions() {
         <div className="rounded-[16px] border border-line bg-surface">
           <EmptyState
             icon={Radar}
-            title="Mapeie um mundo primeiro"
-            note="Toda missao pertence a um mundo. Crie um em Mundos e volte aqui."
+            title="Mapeie um planeta primeiro"
+            note="Toda missao pertence a um planeta. Crie um em Planetas e volte aqui."
           />
         </div>
       ) : (
@@ -182,12 +182,12 @@ export default function Missions() {
             </div>
 
             <Select
-              aria-label="Filtrar por mundo"
+              aria-label="Filtrar por planeta"
               value={worldFilter}
               onChange={(e) => setWorldFilter(e.target.value)}
               className="ml-auto w-auto min-w-[168px]"
             >
-              <option value="">Todos os mundos</option>
+              <option value="">Todos os planetas</option>
               {worlds.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.icon} {w.name}
@@ -461,7 +461,7 @@ function MissionForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Mundo">
+          <Field label="Planeta">
             {(id) => (
               <Select
                 id={id}
@@ -470,7 +470,7 @@ function MissionForm({
                   setDraft({ ...draft, world_id: e.target.value || null })
                 }
               >
-                <option value="">Sem mundo</option>
+                <option value="">Sem planeta</option>
                 {worlds.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.icon} {w.name}

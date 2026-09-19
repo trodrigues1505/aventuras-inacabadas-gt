@@ -104,7 +104,7 @@ export default function Dashboard() {
         className="rise mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
         style={{ animationDelay: '60ms' }}
       >
-        <Stat icon={Globe2} label="Mundos" value={worlds.length} note="mapeados" />
+        <Stat icon={Globe2} label="Planetas" value={worlds.length} note="mapeados" />
         <Stat icon={Radar} label="Em aberto" value={stats.open} note="missoes ativas" />
         <Stat icon={Target} label="Hoje" value={stats.today} note="concluidas" />
         <Stat
@@ -139,15 +139,15 @@ export default function Dashboard() {
               title="Nada em aberto"
               note={
                 worlds.length === 0
-                  ? 'Mapeie um mundo e registre sua primeira missao.'
+                  ? 'Mapeie um planeta e registre sua primeira missao.'
                   : 'Tudo concluido por aqui. Registre a proxima quando quiser.'
               }
               action={
                 <Link
-                  to={worlds.length === 0 ? '/mundos' : '/missoes'}
+                  to={worlds.length === 0 ? '/planetas' : '/missoes'}
                   className="inline-flex h-10 items-center rounded-[10px] border border-line bg-surface px-4 text-[14px] font-medium text-text transition-colors duration-150 hover:bg-raised"
                 >
-                  {worlds.length === 0 ? 'Mapear mundo' : 'Nova missao'}
+                  {worlds.length === 0 ? 'Mapear planeta' : 'Nova missao'}
                 </Link>
               }
             />
@@ -182,9 +182,9 @@ export default function Dashboard() {
 
         <section className="overflow-hidden rounded-[16px] border border-line bg-surface">
           <header className="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 className="text-[14px] font-semibold text-text">Mundos</h2>
+            <h2 className="text-[14px] font-semibold text-text">Planetas</h2>
             <Link
-              to="/mundos"
+              to="/planetas"
               className="flex items-center gap-1 text-[13px] text-azure transition-colors duration-150 hover:text-azure-deep"
             >
               Ver todos
@@ -197,8 +197,8 @@ export default function Dashboard() {
           ) : worlds.length === 0 ? (
             <EmptyState
               icon={Globe2}
-              title="Nenhum mundo"
-              note="Mundos agrupam suas missoes por contexto."
+              title="Nenhum planeta"
+              note="Planetas agrupam suas missoes por contexto."
             />
           ) : (
             <ul className="divide-y divide-line">

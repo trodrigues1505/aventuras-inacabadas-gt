@@ -110,7 +110,7 @@ export default function Admin() {
 
       <div className="rise mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tile icon={Users} label="Tripulantes" value={snap.profiles.length} />
-        <Tile icon={Globe2} label="Mundos" value={snap.worlds.length} />
+        <Tile icon={Globe2} label="Planetas" value={snap.worlds.length} />
         <Tile icon={Radar} label="Missoes" value={snap.missions.length} />
         <Tile
           icon={Coins}
@@ -169,7 +169,7 @@ export default function Admin() {
                     </p>
                     <p className="text-[12px] text-faint">
                       autonomia {state?.level ?? 1} · {worlds}{' '}
-                      {worlds === 1 ? 'mundo' : 'mundos'} · {done}/{total} missoes
+                      {worlds === 1 ? 'planeta' : 'planetas'} · {done}/{total} missoes
                     </p>
                   </div>
                   <Badge tone="ember">
@@ -198,7 +198,7 @@ export default function Admin() {
             <table className="w-full min-w-[620px] border-collapse">
               <thead>
                 <tr className="border-b border-line bg-raised">
-                  {['Missao', 'Tripulante', 'Mundo', 'Prioridade', 'Estado'].map(
+                  {['Missao', 'Tripulante', 'Planeta', 'Prioridade', 'Estado'].map(
                     (h) => (
                       <th
                         key={h}

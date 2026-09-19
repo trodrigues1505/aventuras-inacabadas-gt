@@ -7,7 +7,7 @@ import { Button } from './components/Button'
 import AppShell from './layouts/AppShell'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Worlds from './pages/Worlds'
+import Planets from './pages/Planets'
 import Missions from './pages/Missions'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
@@ -50,7 +50,7 @@ export default function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/mundos" element={<Worlds />} />
+          <Route path="/planetas" element={<Planets />} />
           <Route path="/missoes" element={<Missions />} />
           <Route path="/painel" element={<Admin />} />
           <Route path="/configuracoes" element={<Settings />} />
