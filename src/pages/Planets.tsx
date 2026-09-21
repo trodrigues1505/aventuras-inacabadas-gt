@@ -19,7 +19,7 @@ export default function Planets() {
   const [selected, setSelected] = useState<World | null>(null)
 
   const missionsByWorld = useMemo(() => {
-    const map = new Map<string, number>()
+    const map = new Map()
     missions.forEach(m => {
       if (m.world_id) map.set(m.world_id, (map.get(m.world_id) ?? 0) + 1)
     })
