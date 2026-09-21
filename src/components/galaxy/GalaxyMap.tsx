@@ -1,6 +1,6 @@
 // ============================================================
-// GalaxyMap — mapa estelar SVG interativo
-// Regiões concêntricas, névoa por XP, planetas clicáveis
+// GalaxyMap — mapa SVG interativo
+// Planetas com imagem card (clip circular), névoa por região
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
@@ -8,25 +8,22 @@ import { StarField } from './StarField'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 
-// Dimensões internas do SVG (viewBox)
 const VW = 800
 const VH = 800
 const CX = VW / 2
 const CY = VH / 2
 
-// Raios das 4 regiões concêntricas
 const REGION_RADII = [140, 240, 340, 380]
 
-// Mapa de região → índice para calcular o raio
-
-// Converter coord_x / coord_y (0–1) para posição no SVG
-// O mapa usa um layout polar suavizado para dar sensação de galáxia
 function worldToSVG(coordX: number, coordY: number): [number, number] {
   return [
     CX - VW * 0.45 + coordX * VW * 0.9,
     CY - VH * 0.45 + coordY * VH * 0.9,
   ]
 }
+
+// Slugs com imagem disponível
+const HAS_IMAGE = new Set(['varda','thalassa','zerion','kestrel','nyx'])
 
 interface GalaxyMapProps {
   worlds: WorldWithStatus[]
@@ -35,127 +32,101 @@ interface GalaxyMapProps {
   selectedWorldId?: string
 }
 
-export function GalaxyMap({
-  worlds,
-  playerXP,
-  onSelectWorld,
-  selectedWorldId,
-}: GalaxyMapProps) {
+export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: GalaxyMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [svgSize, setSvgSize] = useState(640)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  // Escala para garantir que o SVG não exceda a altura disponível
-  const [svgSize, setSvgSize] = useState({ w: VW, h: VH })
-
   useEffect(() => {
-    const updateSize = () => {
-      if (!svgRef.current) return
-      const container = svgRef.current.parentElement
+    const update = () => {
+      const container = svgRef.current?.parentElement
       if (!container) return
-      const available = Math.min(container.clientWidth, container.clientHeight, 680)
-      setSvgSize({ w: available, h: available })
+      const s = Math.min(container.clientWidth, container.clientHeight, 700)
+      setSvgSize(s)
     }
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
   }, [])
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full">
+    <div className="flex h-full w-full items-center justify-center">
       <svg
         ref={svgRef}
         viewBox={`0 0 ${VW} ${VH}`}
-        width={svgSize.w}
-        height={svgSize.h}
+        width={svgSize}
+        height={svgSize}
         style={{ overflow: 'visible' }}
-        aria-label="Mapa da galáxia"
       >
         <defs>
-          {/* Filtro de glow para planetas */}
-          <filter id="glow-sm">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-          <filter id="glow-md">
-            <feGaussianBlur stdDeviation="6" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-          <filter id="glow-lg">
-            <feGaussianBlur stdDeviation="12" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
+          {/* Filtros de glow */}
+          <filter id="glow-sm"><feGaussianBlur stdDeviation="3" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+          <filter id="glow-md"><feGaussianBlur stdDeviation="7" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
 
-          {/* Névoas por região — radial gradients */}
-          {REGION_META.map((region, _i) => {
-            const isLocked = playerXP < region.xp_required
-            if (!isLocked) return null
+          {/* Clip circular para imagens dos planetas */}
+          {worlds.map(w => {
+            const [px, py] = worldToSVG(w.coord_x, w.coord_y)
+            const r = w.id === selectedWorldId ? 13 : hoveredId === w.id ? 12 : 10
             return (
-              <radialGradient
-                key={region.key}
-                id={`fog-${region.key}`}
-                cx="50%"
-                cy="50%"
-                r="50%"
-              >
-                <stop offset="0%" stopColor="#050810" stopOpacity="0" />
-                <stop offset="60%" stopColor="#0D1121" stopOpacity="0.7" />
-                <stop offset="100%" stopColor="#0A0E1A" stopOpacity="0.97" />
-              </radialGradient>
+              <clipPath key={`clip-${w.id}`} id={`clip-planet-${w.id}`}>
+                <circle cx={px} cy={py} r={r} />
+              </clipPath>
             )
           })}
 
-          {/* Gradiente do centro da galáxia */}
-          <radialGradient id="galaxy-core" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#1e1065" stopOpacity="0.6" />
-            <stop offset="40%" stopColor="#0f0a2e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#050810" stopOpacity="0" />
+          {/* Gradiente central */}
+          <radialGradient id="core-grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#4c1d95" stopOpacity="0.5"/>
+            <stop offset="40%" stopColor="#1e1b4b" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#050810" stopOpacity="0"/>
           </radialGradient>
 
-          {/* Clip para a névoa de cada região */}
-          {REGION_META.map((region, i) => (
-            <clipPath key={`clip-${region.key}`} id={`clip-outer-${region.key}`}>
-              <circle cx={CX} cy={CY} r={REGION_RADII[i] + 40} />
-            </clipPath>
-          ))}
+          {/* Névoas das regiões bloqueadas */}
+          {REGION_META.map((region, i) => {
+            const isLocked = playerXP < region.xp_required
+            if (!isLocked) return null
+            const innerR = i === 0 ? 0 : REGION_RADII[i - 1]
+            const outerR = REGION_RADII[i] + 50
+            return (
+              <radialGradient key={`fog-grad-${region.key}`} id={`fog-grad-${region.key}`} cx="50%" cy="50%" r="50%">
+                <stop offset={`${Math.max(0, (innerR / outerR) * 100 - 5)}%`} stopColor="#080c18" stopOpacity="0" />
+                <stop offset={`${Math.min((innerR / outerR) * 100 + 20, 82)}%`} stopColor="#080c18" stopOpacity="0.88" />
+                <stop offset="100%" stopColor="#050810" stopOpacity="0.97" />
+              </radialGradient>
+            )
+          })}
         </defs>
 
-        {/* ── Fundo: espaço profundo ──────────────────────────── */}
-        <rect width={VW} height={VH} fill="#050810" />
+        {/* Fundo */}
+        <rect width={VW} height={VH} fill="transparent" />
 
-        {/* ── Estrelas animadas ───────────────────────────────── */}
-        <StarField width={VW} height={VH} count={220} />
+        {/* Estrelas */}
+        <StarField width={VW} height={VH} count={200} />
 
-        {/* ── Núcleo da galáxia (brilho central) ─────────────── */}
-        <circle cx={CX} cy={CY} r={160} fill="url(#galaxy-core)" />
+        {/* Núcleo galáctico */}
+        <circle cx={CX} cy={CY} r={170} fill="url(#core-grad)" />
 
-        {/* ── Anéis das regiões ───────────────────────────────── */}
+        {/* Anéis das regiões */}
         {REGION_META.map((region, i) => {
           const r = REGION_RADII[i]
           const isLocked = playerXP < region.xp_required
           return (
             <g key={region.key}>
-              {/* Linha do anel */}
               <circle
-                cx={CX}
-                cy={CY}
-                r={r}
+                cx={CX} cy={CY} r={r}
                 fill="none"
-                stroke={isLocked ? '#1e2d47' : '#1e3a5f'}
-                strokeWidth={isLocked ? 0.5 : 1}
-                strokeDasharray={isLocked ? '4 6' : '8 4'}
-                opacity={isLocked ? 0.4 : 0.6}
+                stroke={isLocked ? 'rgba(30,45,71,0.6)' : 'rgba(45,212,191,0.2)'}
+                strokeWidth={isLocked ? 0.5 : 0.8}
+                strokeDasharray={isLocked ? '3 7' : '6 4'}
               />
-              {/* Label da região — posição no topo */}
               {!isLocked && (
                 <text
-                  x={CX}
-                  y={CY - r + 14}
+                  x={CX} y={CY - r + 13}
                   textAnchor="middle"
-                  fill="#4a6fa5"
-                  fontSize="9"
-                  fontFamily="'Space Grotesk', sans-serif"
+                  fill="rgba(45,212,191,0.35)"
+                  fontSize="8"
+                  fontFamily="'Space Grotesk',sans-serif"
                   letterSpacing="2"
-                  opacity="0.7"
                 >
                   {region.label.toUpperCase()}
                 </text>
@@ -164,77 +135,37 @@ export function GalaxyMap({
           )
         })}
 
-        {/* ── Névoas das regiões bloqueadas ───────────────────── */}
+        {/* Névoas das regiões bloqueadas */}
         {REGION_META.map((region, i) => {
           const isLocked = playerXP < region.xp_required
           if (!isLocked) return null
-
-          // Raio interno: a região anterior (ou 0 para a primeira)
           const innerR = i === 0 ? 0 : REGION_RADII[i - 1]
           const outerR = REGION_RADII[i] + 50
 
           return (
             <g key={`fog-${region.key}`}>
-              {/* Anel de névoa entre o raio interno e externo */}
               <defs>
-                <radialGradient
-                  id={`fog-ring-${region.key}`}
-                  cx="50%"
-                  cy="50%"
-                  r="50%"
-                >
-                  <stop
-                    offset={(innerR / outerR) * 100 + '%'}
-                    stopColor="#0A0E1A"
-                    stopOpacity="0"
-                  />
-                  <stop
-                    offset={Math.min((innerR / outerR) * 100 + 15, 85) + '%'}
-                    stopColor="#0A0E1A"
-                    stopOpacity="0.85"
-                  />
-                  <stop offset="100%" stopColor="#080C18" stopOpacity="0.97" />
-                </radialGradient>
-                <mask id={`mask-fog-${region.key}`}>
+                <mask id={`fog-mask-${region.key}`}>
                   <circle cx={CX} cy={CY} r={outerR} fill="white" />
-                  {i > 0 && (
-                    <circle
-                      cx={CX}
-                      cy={CY}
-                      r={innerR - 10}
-                      fill="black"
-                    />
-                  )}
+                  {i > 0 && <circle cx={CX} cy={CY} r={Math.max(0, innerR - 8)} fill="black" />}
                 </mask>
               </defs>
-
               <circle
-                cx={CX}
-                cy={CY}
-                r={outerR}
-                fill={`url(#fog-ring-${region.key})`}
-                mask={`url(#mask-fog-${region.key})`}
-                opacity="0.95"
+                cx={CX} cy={CY} r={outerR}
+                fill={`url(#fog-grad-${region.key})`}
+                mask={`url(#fog-mask-${region.key})`}
               >
-                {/* Animação suave de pulso na névoa */}
-                <animate
-                  attributeName="opacity"
-                  values="0.92;0.98;0.92"
-                  dur="6s"
-                  repeatCount="indefinite"
-                />
+                <animate attributeName="opacity" values="0.9;0.97;0.9" dur="7s" repeatCount="indefinite" />
               </circle>
-
-              {/* Texto "bloqueado" com XP necessário */}
               {i > 0 && (
                 <text
                   x={CX}
-                  y={CY - (innerR + (REGION_RADII[i] - innerR) * 0.5)}
+                  y={CY - (innerR + (REGION_RADII[i] - innerR) * 0.45)}
                   textAnchor="middle"
-                  fill="#2a3a55"
-                  fontSize="10"
-                  fontFamily="'Space Grotesk', sans-serif"
-                  letterSpacing="1.5"
+                  fill="rgba(42,58,85,0.8)"
+                  fontSize="9.5"
+                  fontFamily="'Space Grotesk',sans-serif"
+                  letterSpacing="1"
                 >
                   {region.label.toUpperCase()} — {region.xp_required.toLocaleString()} XP
                 </text>
@@ -243,159 +174,116 @@ export function GalaxyMap({
           )
         })}
 
-        {/* ── Planetas ────────────────────────────────────────── */}
-        {worlds.map((world) => {
-          const [px, py] = worldToSVG(world.coord_x, world.coord_y)
-          const isSelected = world.id === selectedWorldId
-          const isHovered = world.id === hoveredId
-          const isLocked = world.status === 'locked'
-          const isColonized = world.status === 'colonized'
-          const isAvailable = world.status === 'available'
+        {/* Planetas */}
+        {worlds.map(w => {
+          const [px, py] = worldToSVG(w.coord_x, w.coord_y)
+          const isSelected = w.id === selectedWorldId
+          const isHovered = w.id === hoveredId
+          const isLocked = w.status === 'locked'
+          const isColonized = w.status === 'colonized'
+          const isAvailable = w.status === 'available'
+          const hasImg = HAS_IMAGE.has(w.slug) && !isLocked
 
-          const displayName = isColonized
-            ? world.playerWorld?.custom_name ?? world.name
-            : isLocked
-            ? '???'
-            : world.name
+          // Raio do planeta
+          const pr = isSelected ? 13 : isHovered ? 12 : 10
 
-          const planetR = isSelected ? 7 : isHovered ? 6.5 : 5.5
-          const glowColor = isLocked ? '#1e2d47' : world.color_glow
+          const displayName = isLocked ? '???' : isColonized
+            ? (w.playerWorld?.custom_name ?? w.name)
+            : w.name
 
           return (
             <g
-              key={world.id}
+              key={w.id}
               style={{ cursor: isLocked ? 'not-allowed' : 'pointer' }}
-              onClick={() => !isLocked && onSelectWorld(world)}
-              onMouseEnter={() => !isLocked && setHoveredId(world.id)}
+              onClick={() => !isLocked && onSelectWorld(w)}
+              onMouseEnter={() => !isLocked && setHoveredId(w.id)}
               onMouseLeave={() => setHoveredId(null)}
-              aria-label={displayName}
             >
-              {/* Halo externo (glow) */}
+              {/* Halo de glow */}
               {!isLocked && (
                 <circle
-                  cx={px}
-                  cy={py}
-                  r={planetR + 8}
-                  fill={glowColor}
-                  opacity={isSelected ? 0.35 : isHovered ? 0.25 : 0.12}
+                  cx={px} cy={py}
+                  r={pr + (isSelected ? 14 : 8)}
+                  fill={w.color_glow}
+                  opacity={isSelected ? 0.3 : isHovered ? 0.2 : 0.1}
                   filter="url(#glow-md)"
                 >
                   {isAvailable && (
-                    <animate
-                      attributeName="r"
-                      values={`${planetR + 6};${planetR + 12};${planetR + 6}`}
-                      dur="3s"
-                      repeatCount="indefinite"
-                    />
+                    <animate attributeName="r" values={`${pr+7};${pr+13};${pr+7}`} dur="2.5s" repeatCount="indefinite" />
                   )}
                 </circle>
               )}
 
-              {/* Anel dourado para planetas colonizados */}
-              {isColonized && (
-                <circle
-                  cx={px}
-                  cy={py}
-                  r={planetR + 5}
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="1.5"
-                  opacity="0.7"
-                >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 ${px} ${py}`}
-                    to={`360 ${px} ${py}`}
-                    dur="20s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              )}
-
-              {/* Corpo do planeta */}
-              <circle
-                cx={px}
-                cy={py}
-                r={planetR}
-                fill={isLocked ? '#1a2740' : world.color_primary}
-                opacity={isLocked ? 0.3 : 1}
-                filter={isLocked ? undefined : 'url(#glow-sm)'}
-              >
-                {/* Pulso suave em planetas disponíveis */}
-                {isAvailable && (
-                  <animate
-                    attributeName="r"
-                    values={`${planetR};${planetR * 1.15};${planetR}`}
-                    dur="2.5s"
-                    repeatCount="indefinite"
-                  />
-                )}
-              </circle>
-
-              {/* Indicador de seleção */}
+              {/* Anel de seleção */}
               {isSelected && (
                 <circle
-                  cx={px}
-                  cy={py}
-                  r={planetR + 4}
+                  cx={px} cy={py} r={pr + 5}
                   fill="none"
-                  stroke={world.color_primary}
+                  stroke={w.color_primary}
                   strokeWidth="1"
-                  opacity="0.8"
+                  opacity="0.7"
                 />
               )}
 
-              {/* Label do planeta */}
+              {/* Anel dourado — colonizado */}
+              {isColonized && (
+                <circle cx={px} cy={py} r={pr + 4} fill="none" stroke="#F59E0B" strokeWidth="1.2" opacity="0.65">
+                  <animateTransform attributeName="transform" type="rotate"
+                    from={`0 ${px} ${py}`} to={`360 ${px} ${py}`} dur="20s" repeatCount="indefinite" />
+                </circle>
+              )}
+
+              {/* Corpo do planeta — imagem ou cor */}
+              {hasImg ? (
+                <>
+                  <image
+                    href={`/assets/planets/${w.slug}-card.png`}
+                    x={px - pr} y={py - pr}
+                    width={pr * 2} height={pr * 2}
+                    clipPath={`url(#clip-planet-${w.id})`}
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                  {/* Borda colorida sobre a imagem */}
+                  <circle cx={px} cy={py} r={pr} fill="none" stroke={w.color_primary} strokeWidth="1" opacity="0.5" />
+                </>
+              ) : (
+                <circle
+                  cx={px} cy={py} r={pr}
+                  fill={isLocked ? '#1a2740' : w.color_primary}
+                  opacity={isLocked ? 0.25 : 1}
+                  filter={isLocked ? undefined : 'url(#glow-sm)'}
+                >
+                  {isAvailable && (
+                    <animate attributeName="r" values={`${pr};${pr*1.12};${pr}`} dur="2s" repeatCount="indefinite" />
+                  )}
+                </circle>
+              )}
+
+              {/* Label */}
               <text
-                x={px}
-                y={py + planetR + 14}
+                x={px} y={py + pr + 13}
                 textAnchor="middle"
-                fill={
-                  isLocked
-                    ? '#2a3a55'
-                    : isColonized
-                    ? '#e2e8f0'
-                    : '#94a3b8'
-                }
+                fill={isLocked ? '#2a3a55' : isColonized ? '#e2e8f0' : '#94a3b8'}
                 fontSize={isColonized ? '9.5' : '8.5'}
-                fontFamily="'Space Grotesk', sans-serif"
+                fontFamily="'Space Grotesk',sans-serif"
                 fontWeight={isColonized ? '600' : '400'}
-                letterSpacing="0.5"
-                opacity={isLocked ? 0.4 : 1}
+                opacity={isLocked ? 0.35 : 1}
               >
                 {displayName}
               </text>
 
-              {/* Ícone de cadeado em planetas bloqueados */}
-              {isLocked && (
-                <text
-                  x={px}
-                  y={py + 4}
-                  textAnchor="middle"
-                  fill="#2a3a55"
-                  fontSize="8"
-                  opacity="0.5"
-                >
-                  ⬡
-                </text>
+              {/* Indicador de status abaixo do nome */}
+              {!isLocked && (
+                <circle
+                  cx={px} cy={py + pr + 20}
+                  r="2.5"
+                  fill={isColonized ? '#F59E0B' : '#2DD4BF'}
+                  opacity="0.8"
+                />
               )}
             </g>
           )
         })}
-
-        {/* ── Indicador de XP atual do jogador ───────────────── */}
-        <text
-          x={16}
-          y={VH - 12}
-          fill="#4a6fa5"
-          fontSize="9"
-          fontFamily="'Space Grotesk', sans-serif"
-          letterSpacing="1"
-          opacity="0.6"
-        >
-          ⚡ {playerXP.toLocaleString()} XP
-        </text>
       </svg>
     </div>
   )
