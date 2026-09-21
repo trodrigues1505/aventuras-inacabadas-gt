@@ -1,22 +1,21 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
-  Globe2,
   LayoutDashboard,
-  Lock,
+  Globe2,
+  Map,
   Radar,
-  Settings,
-  Shield,
-  TrendingUp,
   Users,
+  TrendingUp,
+  Shield,
+  Settings,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
 import { BRAND } from '../data/brand'
 
-type Item = {
+interface Item {
   to: string
   label: string
-  icon: LucideIcon
+  icon: React.ElementType
   ready: boolean
   adminOnly?: boolean
 }
@@ -24,14 +23,66 @@ type Item = {
 const ITEMS: Item[] = [
   { to: '/',              label: 'Ponte',         icon: LayoutDashboard, ready: true },
   { to: '/planetas',      label: 'Planetas',      icon: Globe2,          ready: true },
-  { to: '/missoes',       label: 'Missões',       icon: Radar,           ready: true },
+  { to: '/galaxia',       label: 'Galáxia',       icon: Map,             ready: true },
+  { to: '/missoes',       label: 'Missões',        icon: Radar,           ready: true },
   { to: '/tripulacao',    label: 'Tripulação',    icon: Users,           ready: true },
   { to: '/registro',      label: 'Registro',      icon: TrendingUp,      ready: false },
-  { to: '/painel',        label: 'Painel',        icon: Shield,          ready: true, adminOnly: true },
+  { to: '/painel',        label: 'Painel',         icon: Shield,          ready: true, adminOnly: true },
   { to: '/configuracoes', label: 'Configurações', icon: Settings,        ready: true },
 ]
 
-const MOBILE_ROUTES = ['/', '/planetas', '/missoes', '/configuracoes']
+const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/configuracoes']
+
+function Avatar({ url, name, size = 32 }: { url?: string | null; name?: string | null; size?: number }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full border border-line object-cover"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full bg-interactive font-semibold text-azure"
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+      aria-hidden
+    >
+      {(name ?? 'A').charAt(0).toUpperCase()}
+    </span>
+  )
+}
+
+function SideLink({ item }: { item: Item }) {
+  if (!item.ready) {
+    return (
+      <span className="flex cursor-not-allowed items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13.5px] text-hull-faint opacity-40">
+        <item.icon size={15} aria-hidden />
+        {item.label}
+      </span>
+    )
+  }
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13.5px] transition-colors duration-150 ${
+          isActive
+            ? 'bg-hull-active font-medium text-hull-text'
+            : 'text-hull-muted hover:bg-hull-hover hover:text-hull-text'
+        }`
+      }
+    >
+      <item.icon size={15} aria-hidden />
+      {item.label}
+    </NavLink>
+  )
+}
 
 export default function AppShell() {
   const { profile, isAdmin } = useAuth()
@@ -69,7 +120,7 @@ export default function AppShell() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {mobile.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink
@@ -77,11 +128,11 @@ export default function AppShell() {
                 end={to === '/'}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-1 py-3 text-[11px] transition-colors duration-150 ${
-                    isActive ? 'text-azure' : 'text-muted'
+                    isActive ? 'text-azure' : 'text-faint hover:text-text'
                   }`
                 }
               >
-                <Icon size={19} aria-hidden />
+                <Icon size={18} aria-hidden />
                 {label}
               </NavLink>
             </li>
@@ -89,81 +140,5 @@ export default function AppShell() {
         </ul>
       </nav>
     </div>
-  )
-}
-
-function SideLink({ item }: { item: Item }) {
-  const { to, label, icon: Icon, ready } = item
-
-  if (!ready) {
-    return (
-      <span
-        className="flex cursor-default select-none items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] text-hull-faint"
-        title="Disponível nas próximas fases"
-      >
-        <Icon size={17} aria-hidden />
-        {label}
-        <Lock size={13} className="ml-auto" aria-hidden />
-      </span>
-    )
-  }
-
-  return (
-    <NavLink
-      to={to}
-      end={to === '/'}
-      className={({ isActive }) =>
-        `relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] transition-colors duration-150 ${
-          isActive
-            ? 'bg-hull-raised text-hull-text'
-            : 'text-hull-muted hover:bg-hull-raised/60 hover:text-hull-text'
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            <span
-              className="absolute left-0 top-1/2 h-[18px] w-[3px] -translate-y-1/2 rounded-r-full bg-azure"
-              aria-hidden
-            />
-          )}
-          <Icon size={17} aria-hidden />
-          {label}
-        </>
-      )}
-    </NavLink>
-  )
-}
-
-export function Avatar({
-  url,
-  name,
-  size = 32,
-}: {
-  url?: string | null
-  name?: string | null
-  size?: number
-}) {
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt=""
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full border border-line object-cover"
-        style={{ width: size, height: size }}
-      />
-    )
-  }
-  return (
-    <span
-      className="grid shrink-0 place-items-center rounded-full bg-interactive font-semibold text-azure"
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-      aria-hidden
-    >
-      {(name ?? 'A').charAt(0).toUpperCase()}
-    </span>
   )
 }
