@@ -1,31 +1,23 @@
 // ============================================================
 // Planets.tsx — vitrine dos planetas colonizados
-// Criação de planetas foi movida para a tela Galáxia
 // ============================================================
 
 import { useMemo, useState } from 'react'
-import { Globe2, Map, ChevronRight, Lock, Zap } from 'lucide-react'
+import { Globe2, Map, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useGame } from '../hooks/GameProvider'
-import { useAuth } from '../hooks/AuthProvider'
-import { ACCENT } from '../data/gameConfig'
 import type { World } from '../types/database'
 
 const HAS_IMAGE = new Set(['varda','thalassa','zerion','kestrel','nyx'])
 
-function planetBanner(slug: string) {
+function planetBanner(slug: string): string | null {
   return HAS_IMAGE.has(slug) ? `/assets/planets/${slug}-banner.png` : null
-}
-function planetCard(slug: string) {
-  return HAS_IMAGE.has(slug) ? `/assets/planets/${slug}-card.png` : null
 }
 
 export default function Planets() {
   const { worlds, missions, loading } = useGame()
-  const { playerState } = useAuth()
   const [selected, setSelected] = useState<World | null>(null)
 
-  // Missões por planeta
   const missionsByWorld = useMemo(() => {
     const map = new Map<string, number>()
     missions.forEach(m => {
@@ -65,7 +57,6 @@ export default function Planets() {
       </div>
 
       {worlds.length === 0 ? (
-        /* Empty state */
         <div className="flex flex-col items-center justify-center rounded-2xl border border-line bg-surface py-20 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-raised">
             <Globe2 size={24} className="text-faint" />
@@ -73,7 +64,6 @@ export default function Planets() {
           <h2 className="mb-2 text-base font-semibold text-text">Nenhum planeta mapeado</h2>
           <p className="mb-6 max-w-xs text-sm text-faint">
             Acesse o Mapa da Galáxia para explorar e colonizar planetas.
-            Cada planeta ativo cria uma área para suas missões.
           </p>
           <Link
             to="/galaxia"
@@ -86,12 +76,11 @@ export default function Planets() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
 
-          {/* Lista de planetas */}
+          {/* Lista */}
           <div className="flex flex-col gap-3">
             {worlds.map(world => {
               const banner = planetBanner(world.slug ?? '')
               const mCount = missionsByWorld.get(world.id) ?? 0
-              const accent = ACCENT[world.accent as keyof typeof ACCENT] ?? ACCENT.azure
               const isSpotlight = spotlight?.id === world.id
 
               return (
@@ -105,7 +94,6 @@ export default function Planets() {
                     boxShadow: isSpotlight ? '0 0 0 1px var(--color-azure)' : 'none'
                   }}
                 >
-                  {/* Banner */}
                   <div className="relative h-28 overflow-hidden bg-raised">
                     {banner ? (
                       <img
@@ -114,12 +102,11 @@ export default function Planets() {
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <div className={`h-full w-full bg-gradient-to-br ${accent.bg} opacity-40`} />
+                      <div className="h-full w-full bg-raised opacity-60" />
                     )}
                     <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface to-transparent" />
                   </div>
 
-                  {/* Info */}
                   <div className="flex items-center gap-3 px-4 py-3">
                     <span className="text-xl">{world.icon}</span>
                     <div className="min-w-0 flex-1">
@@ -136,10 +123,9 @@ export default function Planets() {
             })}
           </div>
 
-          {/* Painel de detalhes */}
+          {/* Painel lateral */}
           {spotlight && (
             <div className="sticky top-8 flex flex-col gap-4 overflow-hidden rounded-2xl border border-line bg-surface">
-              {/* Banner do spotlight */}
               <div className="relative h-40 overflow-hidden bg-raised">
                 {planetBanner(spotlight.slug ?? '') ? (
                   <img
@@ -159,12 +145,10 @@ export default function Planets() {
               </div>
 
               <div className="flex flex-col gap-4 px-4 pb-4">
-                {/* Descrição */}
                 {spotlight.description && (
                   <p className="text-sm leading-relaxed text-faint">{spotlight.description}</p>
                 )}
 
-                {/* Stats */}
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'Missões', value: missionsByWorld.get(spotlight.id) ?? 0 },
@@ -177,7 +161,6 @@ export default function Planets() {
                   ))}
                 </div>
 
-                {/* Ir para missões */}
                 <Link
                   to="/missoes"
                   className="flex items-center justify-center gap-2 rounded-xl bg-azure py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"

@@ -11,7 +11,7 @@ import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 import {
   Target, Lock, CheckCircle2, ChevronLeft, Compass,
-  Zap, Star, Coins
+  Star
 } from 'lucide-react'
 
 interface GalaxyScreenProps {
