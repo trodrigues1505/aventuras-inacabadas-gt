@@ -33,7 +33,8 @@ const ITEMS: Item[] = [
 
 const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/configuracoes']
 
-function Avatar({ url, name, size = 32 }: { url?: string | null; name?: string | null; size?: number }) {
+// Exportado para uso em Dashboard, Settings, Admin e outras páginas
+export function Avatar({ url, name, size = 32 }: { url?: string | null; name?: string | null; size?: number }) {
   if (url) {
     return (
       <img

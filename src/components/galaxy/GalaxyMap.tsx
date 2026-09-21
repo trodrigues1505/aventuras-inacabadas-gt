@@ -18,12 +18,6 @@ const CY = VH / 2
 const REGION_RADII = [140, 240, 340, 380]
 
 // Mapa de região → índice para calcular o raio
-const REGION_IDX: Record<string, number> = {
-  'setor-ancora': 0,
-  'corredor-vivo': 1,
-  'fronteira-cinzenta': 2,
-  'limiar': 3,
-}
 
 // Converter coord_x / coord_y (0–1) para posição no SVG
 // O mapa usa um layout polar suavizado para dar sensação de galáxia
@@ -95,7 +89,6 @@ export function GalaxyMap({
           {REGION_META.map((region, i) => {
             const isLocked = playerXP < region.xp_required
             if (!isLocked) return null
-            const r = REGION_RADII[i]
             return (
               <radialGradient
                 key={region.key}

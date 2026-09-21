@@ -12,10 +12,10 @@ import { REGION_META } from '../../types/galaxy'
 
 interface GalaxyScreenProps {
   playerXP: number
-  playerLevel: number
+  playerLevel?: number
 }
 
-export function GalaxyScreen({ playerXP, playerLevel }: GalaxyScreenProps) {
+export function GalaxyScreen({ playerXP, playerLevel: _playerLevel }: GalaxyScreenProps) {
   const { worlds, loading, error, colonize, refreshWorlds } = useGalaxy(playerXP)
   const [selectedWorld, setSelectedWorld] = useState<WorldWithStatus | null>(null)
   const [colonizeTarget, setColonizeTarget] = useState<WorldWithStatus | null>(null)

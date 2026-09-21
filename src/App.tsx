@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './hooks/AuthProvider'
-import { GameProvider, useGame } from './hooks/GameProvider'
+import { GameProvider } from './hooks/GameProvider'
 import { FullScreenLoader } from './components/FullScreenLoader'
 import { Notice } from './components/Notice'
 import { Button } from './components/Button'
@@ -15,9 +15,9 @@ import Settings from './pages/Settings'
 import { GalaxyScreen } from './components/galaxy'
 
 function GalaxyPage() {
-  const { playerState } = useGame()
+  const { playerState } = useAuth()
   return (
-    <div style={{ height: 'calc(100dvh - 0px)' }}>
+    <div style={{ height: '100dvh' }}>
       <GalaxyScreen
         playerXP={playerState?.xp ?? 0}
         playerLevel={playerState?.level ?? 1}
