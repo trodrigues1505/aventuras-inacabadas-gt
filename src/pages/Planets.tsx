@@ -179,7 +179,7 @@ function PlanetCard({
       {/* Imagem do planeta */}
       <div className="relative h-[140px] overflow-hidden bg-raised">
         <img
-          src={`/assets/planets/${world.id}-banner.jpg`}
+          src={`assets/planets/${world.id}-banner.jpg`}
           alt={world.name}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           onError={(e) => {
