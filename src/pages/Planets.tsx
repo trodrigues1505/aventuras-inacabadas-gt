@@ -56,7 +56,7 @@ export default function Planets() {
       toast('success', editing ? 'Planeta atualizado.' : `Planeta "${saved.name}" mapeado.`)
       close()
     } catch (e) {
-      toast('error', e instanceof Error ? e.message : 'Nao foi possivel salvar.')
+      toast('error', e instanceof Error ? e.message : 'Não foi possível salvar.')
     } finally {
       setBusy(false)
     }
@@ -68,10 +68,10 @@ export default function Planets() {
     try {
       await deleteWorld(removing.id)
       dropWorld(removing.id)
-      toast('info', `"${removing.name}" foi desmapeado. As missoes continuam no registro.`)
+      toast('info', `"${removing.name}" foi desmapeado. As missões continuam no registro.`)
       setRemoving(null)
     } catch (e) {
-      toast('error', e instanceof Error ? e.message : 'Nao foi possivel excluir.')
+      toast('error', e instanceof Error ? e.message : 'Não foi possível excluir.')
     } finally {
       setBusy(false)
     }
@@ -81,7 +81,7 @@ export default function Planets() {
     <main className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">
       <SectionHeader
         title="Planetas"
-        note="Cada planeta agrupa um tipo de missao."
+        note="Mundos, recursos e oportunidades."
         action={
           <Button onClick={() => start()}>
             <Plus size={15} aria-hidden />
@@ -97,7 +97,7 @@ export default function Planets() {
           <EmptyState
             icon={Globe2}
             title="Nenhum planeta mapeado"
-            note="Planetas sao as categorias das suas missoes — trabalho, estudo, casa, o que fizer sentido para voce."
+            note="Planetas são as categorias das suas missões — trabalho, estudo, casa, o que fizer sentido para você."
             action={
               <Button onClick={() => start()}>
                 <Plus size={15} aria-hidden />
@@ -115,67 +115,17 @@ export default function Planets() {
             const accent = ACCENT[world.accent] ?? ACCENT.azure
 
             return (
-              <article
+              <PlanetCard
                 key={world.id}
-                className="rise group relative flex flex-col overflow-hidden rounded-[16px] border border-line bg-surface p-5 transition-colors duration-150 hover:border-faint/50"
-                style={{ animationDelay: `${i * 40}ms` }}
-              >
-                <span
-                  className={`absolute inset-x-0 top-0 h-[3px] ${accent.bar}`}
-                  aria-hidden
-                />
-
-                <div className="mb-3 flex items-start justify-between">
-                  <span
-                    className={`grid size-10 place-items-center rounded-[12px] text-[19px] ${accent.soft}`}
-                    aria-hidden
-                  >
-                    {world.icon}
-                  </span>
-                  {/* Ações aparecem no hover mas continuam alcançáveis
-                      por teclado e sempre visíveis no toque. */}
-                  <div className="flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 max-md:opacity-100">
-                    <IconButton
-                      label={`Editar ${world.name}`}
-                      icon={Pencil}
-                      onClick={() => start(world)}
-                    />
-                    <IconButton
-                      label={`Excluir ${world.name}`}
-                      icon={Trash2}
-                      onClick={() => setRemoving(world)}
-                    />
-                  </div>
-                </div>
-
-                <h2 className="text-[15px] font-semibold text-text">{world.name}</h2>
-                {world.description && (
-                  <p className="mt-1 line-clamp-2 text-[13px] text-muted">
-                    {world.description}
-                  </p>
-                )}
-
-                <div className="mt-auto pt-5">
-                  <div className="mb-1.5 flex items-baseline justify-between text-[12px]">
-                    <span className="text-faint">
-                      {mine.length === 0
-                        ? 'Sem missoes'
-                        : `${done} de ${mine.length} concluidas`}
-                    </span>
-                    {mine.length > 0 && (
-                      <span className={`font-semibold tabular-nums ${accent.text}`}>
-                        {pct}%
-                      </span>
-                    )}
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-raised">
-                    <div
-                      className={`h-full rounded-full transition-[width] duration-500 ${accent.bar}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              </article>
+                world={world}
+                done={done}
+                total={mine.length}
+                pct={pct}
+                accent={accent}
+                delay={i * 40}
+                onEdit={() => start(world)}
+                onRemove={() => setRemoving(world)}
+              />
             )
           })}
         </div>
@@ -193,12 +143,119 @@ export default function Planets() {
         open={removing !== null}
         busy={busy}
         title={`Desmapear "${removing?.name}"?`}
-        message="As missoes deste planeta nao serao apagadas — elas ficam no registro sem planeta, e voce pode reatribui-las depois."
+        message="As missões deste planeta não serão apagadas — elas ficam no registro sem planeta, e você pode reatribuí-las depois."
         confirmLabel="Desmapear"
         onConfirm={confirmRemove}
         onCancel={() => setRemoving(null)}
       />
     </main>
+  )
+}
+
+function PlanetCard({
+  world,
+  done,
+  total,
+  pct,
+  accent,
+  delay,
+  onEdit,
+  onRemove,
+}: {
+  world: World
+  done: number
+  total: number
+  pct: number
+  accent: (typeof ACCENT)[keyof typeof ACCENT]
+  delay: number
+  onEdit: () => void
+  onRemove: () => void
+}) {
+  return (
+    <article
+      className="rise group relative flex flex-col overflow-hidden rounded-[16px] border border-line bg-surface transition-colors duration-150 hover:border-faint/50"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {/* Imagem do planeta */}
+      <div className="relative h-[140px] overflow-hidden bg-raised">
+        <img
+          src={`/assets/planets/${world.id}-banner.jpg`}
+          alt={world.name}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          onError={(e) => {
+            ;(e.target as HTMLImageElement).style.display = 'none'
+          }}
+        />
+        {/* Overlay gradient sempre presente */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Barra de acento no topo */}
+        <span className={`absolute inset-x-0 top-0 h-[3px] ${accent.bar}`} aria-hidden />
+
+        {/* Ações no hover */}
+        <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 max-md:opacity-100">
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={`Editar ${world.name}`}
+            className="grid size-7 place-items-center rounded-[8px] bg-black/40 text-white backdrop-blur-sm transition-colors duration-150 hover:bg-black/60"
+          >
+            <Pencil size={13} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Excluir ${world.name}`}
+            className="grid size-7 place-items-center rounded-[8px] bg-black/40 text-white backdrop-blur-sm transition-colors duration-150 hover:bg-red-500/80"
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </div>
+
+        {/* Ícone e nome sobre a imagem */}
+        <div className="absolute bottom-0 left-0 p-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={`grid size-7 place-items-center rounded-[8px] text-[14px] ${accent.soft}`}
+              aria-hidden
+            >
+              {world.icon}
+            </span>
+            <h2 className="text-[14px] font-semibold text-white drop-shadow">
+              {world.name}
+            </h2>
+          </div>
+        </div>
+      </div>
+
+      {/* Corpo do card */}
+      <div className="flex flex-1 flex-col p-4">
+        {world.description && (
+          <p className="mb-3 line-clamp-2 text-[12px] text-muted">{world.description}</p>
+        )}
+
+        <div className="mt-auto">
+          <div className="mb-1.5 flex items-baseline justify-between text-[12px]">
+            <span className="text-faint">
+              {total === 0
+                ? 'Sem missões'
+                : `${done} de ${total} concluídas`}
+            </span>
+            {total > 0 && (
+              <span className={`font-semibold tabular-nums ${accent.text}`}>
+                {pct}%
+              </span>
+            )}
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-raised">
+            <div
+              className={`h-full rounded-full transition-[width] duration-500 ${accent.bar}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -230,8 +287,6 @@ function WorldForm({
 
   const [draft, setDraft] = useState<WorldDraft>(initial)
   const [touched, setTouched] = useState(false)
-  // Remonta o formulário quando o alvo muda: sem isto, abrir "editar"
-  // logo após "criar" mostraria o rascunho anterior.
   const [key, setKey] = useState(0)
   useMemo(() => {
     setDraft(initial)
@@ -252,9 +307,7 @@ function WorldForm({
       open={open}
       onClose={onClose}
       title={world ? 'Editar planeta' : 'Novo planeta'}
-      subtitle={
-        world ? undefined : 'Planetas agrupam missoes por contexto.'
-      }
+      subtitle={world ? undefined : 'Planetas agrupam missões por contexto.'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -280,13 +333,13 @@ function WorldForm({
           )}
         </Field>
 
-        <Field label="Descricao" hint="Opcional.">
+        <Field label="Descrição" hint="Opcional.">
           {(id) => (
             <Textarea
               id={id}
               rows={2}
               value={draft.description ?? ''}
-              placeholder="O que voce gerencia neste planeta?"
+              placeholder="O que você gerencia neste planeta?"
               onChange={(e) =>
                 setDraft({ ...draft, description: e.target.value || null })
               }
@@ -294,7 +347,7 @@ function WorldForm({
           )}
         </Field>
 
-        <Field label="Icone">
+        <Field label="Ícone">
           {() => (
             <div className="flex flex-wrap gap-1.5">
               {WORLD_ICONS.map((icon) => (
@@ -302,7 +355,7 @@ function WorldForm({
                   key={icon}
                   type="button"
                   onClick={() => setDraft({ ...draft, icon })}
-                  aria-label={`Icone ${icon}`}
+                  aria-label={`Ícone ${icon}`}
                   aria-pressed={draft.icon === icon}
                   className={`grid size-9 place-items-center rounded-[10px] text-[17px] transition-colors duration-150 ${
                     draft.icon === icon
@@ -345,7 +398,7 @@ function SkeletonGrid() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="h-[168px] animate-pulse rounded-[16px] border border-line bg-surface"
+          className="h-[220px] animate-pulse rounded-[16px] border border-line bg-surface"
         />
       ))}
     </div>

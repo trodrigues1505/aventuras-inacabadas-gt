@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { Mission, PlayerState, Priority } from '../types/database'
+import type { Mission, MissionStatus, PlayerState, Priority } from '../types/database'
 import { XP_BY_PRIORITY, getXpRequiredForLevel } from '../data/gameConfig'
 import { applyBonus } from '../data/crew'
 
@@ -11,6 +11,9 @@ export type MissionDraft = {
   due_date: string | null
   reward: number
 }
+
+/** Campos que podem ser atualizados no banco — inclui status para mover no Kanban. */
+type MissionUpdate = Partial<MissionDraft> & { status?: MissionStatus }
 
 export async function listMissions(userId: string): Promise<Mission[]> {
   const { data, error } = await supabase
@@ -39,11 +42,11 @@ export async function createMission(
 
 export async function updateMission(
   id: string,
-  draft: Partial<MissionDraft>,
+  update: MissionUpdate,
 ): Promise<Mission> {
   const { data, error } = await supabase
     .from('missions')
-    .update(draft)
+    .update(update)
     .eq('id', id)
     .select()
     .single()
@@ -63,41 +66,34 @@ export type CompletionResult = {
   xpGained: number
   creditsGained: number
   leveledUpTo: number | null
-  /** Frase do tripulante quando o bonus dele entrou. */
   crewNote: string | null
 }
 
 /**
- * Conclui (ou reabre) uma missão e liquida a recompensa.
- *
- * Reabrir NÃO estorna XP nem créditos de propósito: desmarcar por
- * engano e perder progresso é punitivo, e o estorno abriria caminho
- * para saldo negativo. Em compensação, só paga quem estava aberta —
- * o campo `completed_at` é a trava contra farmar a mesma missão.
+ * Conclui (done) ou reabre (open) uma missão e liquida a recompensa.
+ * Única função que toca XP e créditos — o Kanban chama updateMission
+ * diretamente para os status intermediários (in_progress, review).
  */
 export async function toggleMission(
   mission: Mission,
   state: PlayerState,
-  allMissions: Mission[] = [],
+  allMissions: Mission[],
 ): Promise<CompletionResult> {
-  const reopening = mission.status === 'done'
+  const completing = mission.status !== 'done'
 
-  const { data: updated, error } = await supabase
-    .from('missions')
-    .update({
-      status: reopening ? 'open' : 'done',
-      completed_at: reopening ? null : new Date().toISOString(),
-    })
-    .eq('id', mission.id)
-    .select()
-    .single()
+  if (!completing) {
+    // Reabre: volta para 'open' sem mexer em XP/créditos
+    const { data, error } = await supabase
+      .from('missions')
+      .update({ status: 'open', completed_at: null })
+      .eq('id', mission.id)
+      .select()
+      .single()
 
-  if (error) throw error
+    if (error) throw error
 
-  const alreadyPaid = mission.completed_at !== null
-  if (reopening || alreadyPaid) {
     return {
-      mission: updated as Mission,
+      mission: data as Mission,
       state,
       xpGained: 0,
       creditsGained: 0,
@@ -106,44 +102,56 @@ export async function toggleMission(
     }
   }
 
-  const baseXp = XP_BY_PRIORITY[mission.priority]
-  const baseCredits = mission.reward
-  const bonus = applyBonus(
-    state.crew_id,
-    mission,
-    baseXp,
-    baseCredits,
-    allMissions,
-  )
+  // Calcula recompensa base
+  const baseXp = XP_BY_PRIORITY[mission.priority] ?? 10
+  const baseCredits = mission.reward ?? 0
 
-  const xpGained = baseXp + bonus.xp
-  const creditsGained = baseCredits + bonus.credits
+  // Aplica bônus do tripulante
+  const bonus = applyBonus(state.crew_id, mission, allMissions)
+  const xpGained = Math.round(baseXp * (bonus.xpMultiplier ?? 1)) + (bonus.xpFlat ?? 0)
+  const creditsGained = Math.round(baseCredits * (bonus.creditsMultiplier ?? 1)) + (bonus.creditsFlat ?? 0)
 
-  let xp = state.xp + xpGained
-  let level = state.level
+  // Calcula level up
+  let newXp = state.xp + xpGained
+  let newLevel = state.level
   let leveledUpTo: number | null = null
 
-  while (xp >= getXpRequiredForLevel(level)) {
-    xp -= getXpRequiredForLevel(level)
-    level += 1
-    leveledUpTo = level
+  const required = getXpRequiredForLevel(newLevel)
+  if (newXp >= required) {
+    newXp -= required
+    newLevel += 1
+    leveledUpTo = newLevel
   }
 
-  const { data: nextState, error: stateError } = await supabase
-    .from('player_state')
-    .update({ xp, level, currency: state.currency + creditsGained })
-    .eq('user_id', state.user_id)
-    .select()
-    .single()
+  // Persiste missão e player_state atomicamente via duas chamadas
+  const [missionResult, stateResult] = await Promise.all([
+    supabase
+      .from('missions')
+      .update({ status: 'done', completed_at: new Date().toISOString() })
+      .eq('id', mission.id)
+      .select()
+      .single(),
+    supabase
+      .from('player_state')
+      .update({
+        xp: newXp,
+        level: newLevel,
+        currency: state.currency + creditsGained,
+      })
+      .eq('user_id', state.user_id)
+      .select()
+      .single(),
+  ])
 
-  if (stateError) throw stateError
+  if (missionResult.error) throw missionResult.error
+  if (stateResult.error) throw stateResult.error
 
   return {
-    mission: updated as Mission,
-    state: nextState as PlayerState,
+    mission: missionResult.data as Mission,
+    state: stateResult.data as PlayerState,
     xpGained,
     creditsGained,
     leveledUpTo,
-    crewNote: bonus.note,
+    crewNote: bonus.note ?? null,
   }
 }

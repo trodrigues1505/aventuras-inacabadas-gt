@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Coins, Globe2, Radar, Target, TrendingUp, Users } from 'lucide-react'
+import { ArrowRight, Coins, Globe2, Radar, Sparkles, Target, TrendingUp, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { Avatar } from '../layouts/AppShell'
 import { EmptyState } from '../components/Bits'
@@ -8,6 +8,14 @@ import { useGame } from '../hooks/GameProvider'
 import { ACCENT, getXpRequiredForLevel } from '../data/gameConfig'
 import { findCrew } from '../data/crew'
 import { BRAND } from '../data/brand'
+import type { LucideIcon } from 'lucide-react'
+
+const PRIORITY_LABEL = { high: 'Alta', mid: 'Média', low: 'Baixa' } as const
+const PRIORITY_COLOR = {
+  high: 'text-bad bg-bad/10',
+  mid: 'text-ember bg-ember/10',
+  low: 'text-good bg-good/10',
+} as const
 
 export default function Dashboard() {
   const { profile, playerState } = useAuth()
@@ -30,10 +38,8 @@ export default function Dashboard() {
   const upcoming = useMemo(
     () =>
       missions
-        .filter((m) => m.status === 'open')
+        .filter((m) => m.status === 'open' || m.status === 'in_progress')
         .sort((a, b) => {
-          // Sem prazo vai para o fim: uma missão datada é sempre mais
-          // urgente que uma sem data, independente da prioridade.
           if (a.due_date && b.due_date) return a.due_date < b.due_date ? -1 : 1
           if (a.due_date) return -1
           if (b.due_date) return 1
@@ -44,6 +50,20 @@ export default function Dashboard() {
     [missions],
   )
 
+  // Planeta com mais missões abertas para destacar no dashboard
+  const spotlightWorld = useMemo(() => {
+    if (!worlds.length) return null
+    return worlds.reduce((best, w) => {
+      const open = missions.filter(
+        (m) => m.world_id === w.id && m.status !== 'done',
+      ).length
+      const bestOpen = missions.filter(
+        (m) => m.world_id === best.id && m.status !== 'done',
+      ).length
+      return open > bestOpen ? w : best
+    }, worlds[0])
+  }, [worlds, missions])
+
   if (!profile || !playerState) return null
 
   const crew = findCrew(playerState.crew_id)
@@ -52,27 +72,26 @@ export default function Dashboard() {
   const nome = profile.display_name ?? 'Aventureiro'
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">
-      {/* Perfil e progresso num bloco só: são a mesma informação —
-          quem você é a bordo e o quanto já avançou. */}
+    <main className="mx-auto w-full max-w-6xl px-5 py-8 md:px-10 md:py-10">
+
+      {/* ── Header do jogador ── */}
       <section className="rise mb-6 rounded-[18px] border border-line bg-surface p-6 md:p-7">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-8">
           <div className="flex min-w-0 items-center gap-4">
             <Avatar url={profile.avatar_url} name={nome} size={54} />
             <div className="min-w-0">
-              <h1 className="display truncate text-[24px] text-text md:text-[28px]">
-                {nome}
+              <h1 className="display truncate text-[24px] text-text md:text-[26px]">
+                Olá, {nome}
               </h1>
               <p className="text-[13px] text-muted">
                 {BRAND.ship} · autonomia {playerState.level}
-                {crew && ` · ${crew.name} no posto`}
               </p>
             </div>
           </div>
 
-          <div className="min-w-0 flex-1 md:max-w-[300px]">
+          <div className="min-w-0 flex-1 md:max-w-[280px]">
             <div className="mb-1.5 flex items-baseline justify-between text-[12px]">
-              <span className="text-muted">Dados de exploracao</span>
+              <span className="text-muted">Progresso de exploração</span>
               <span className="tabular-nums font-medium text-ember">
                 {playerState.xp} / {required}
               </span>
@@ -93,7 +112,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div>
-              <p className="text-[12px] text-faint">Creditos</p>
+              <p className="text-[12px] text-faint">Créditos</p>
               <p className="flex items-center gap-1.5 text-[22px] font-semibold tabular-nums text-text">
                 <Coins size={17} className="text-ember" aria-hidden />
                 {playerState.currency}
@@ -103,8 +122,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Aparece só enquanto o posto está vazio. Uma vez escolhido,
-          some para sempre em vez de virar um card permanente. */}
+      {/* ── Aviso: sem tripulante ── */}
       {!crew && (
         <Link
           to="/tripulacao"
@@ -113,37 +131,36 @@ export default function Dashboard() {
         >
           <Users size={17} className="shrink-0 text-azure" aria-hidden />
           <p className="flex-1 text-[13px] text-text">
-            O posto ao seu lado na ponte esta vazio.{' '}
+            O posto ao seu lado na ponte está vazio.{' '}
             <span className="text-muted">
-              Escolher um tripulante muda o que voce ganha por missao.
+              Escolher um tripulante muda o que você ganha por missão.
             </span>
           </p>
           <ArrowRight size={15} className="shrink-0 text-azure" aria-hidden />
         </Link>
       )}
 
+      {/* ── Métricas ── */}
       <div
         className="rise mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
         style={{ animationDelay: '60ms' }}
       >
-        <Stat icon={Globe2} label="Planetas" value={worlds.length} note="mapeados" />
-        <Stat icon={Radar} label="Em aberto" value={stats.open} note="missoes ativas" />
-        <Stat icon={Target} label="Hoje" value={stats.today} note="concluidas" />
-        <Stat
-          icon={TrendingUp}
-          label="Conclusao"
-          value={stats.rate === null ? '—' : `${stats.rate}%`}
-          note="do registro total"
-        />
+        <StatCard icon={Globe2}    label="Planetas"  value={worlds.length}                           note="mapeados" />
+        <StatCard icon={Radar}     label="Em aberto" value={stats.open}                              note="missões ativas" />
+        <StatCard icon={Target}    label="Hoje"      value={stats.today}                             note="concluídas" />
+        <StatCard icon={TrendingUp} label="Conclusão" value={stats.rate === null ? '—' : `${stats.rate}%`} note="do registro total" />
       </div>
 
+      {/* ── Seção principal: 3 colunas ── */}
       <div
-        className="rise grid gap-5 lg:grid-cols-[1.3fr_1fr]"
+        className="rise grid gap-5 lg:grid-cols-[1.4fr_1.1fr_0.9fr]"
         style={{ animationDelay: '120ms' }}
       >
+
+        {/* Próximas missões */}
         <section className="overflow-hidden rounded-[16px] border border-line bg-surface">
           <header className="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 className="text-[14px] font-semibold text-text">Proximas missoes</h2>
+            <h2 className="text-[14px] font-semibold text-text">Próximas missões</h2>
             <Link
               to="/missoes"
               className="flex items-center gap-1 text-[13px] text-azure transition-colors duration-150 hover:text-azure-deep"
@@ -154,22 +171,22 @@ export default function Dashboard() {
           </header>
 
           {loading ? (
-            <div className="h-44 animate-pulse" aria-hidden />
+            <div className="h-56 animate-pulse" aria-hidden />
           ) : upcoming.length === 0 ? (
             <EmptyState
               icon={Radar}
               title="Nada em aberto"
               note={
                 worlds.length === 0
-                  ? 'Mapeie um planeta e registre sua primeira missao.'
-                  : 'Tudo concluido por aqui. Registre a proxima quando quiser.'
+                  ? 'Mapeie um planeta e registre sua primeira missão.'
+                  : 'Tudo concluído. Registre a próxima quando quiser.'
               }
               action={
                 <Link
                   to={worlds.length === 0 ? '/planetas' : '/missoes'}
-                  className="inline-flex h-10 items-center rounded-[10px] border border-line bg-surface px-4 text-[14px] font-medium text-text transition-colors duration-150 hover:bg-raised"
+                  className="inline-flex h-9 items-center rounded-[10px] border border-line bg-surface px-4 text-[13px] font-medium text-text transition-colors duration-150 hover:bg-raised"
                 >
-                  {worlds.length === 0 ? 'Mapear planeta' : 'Nova missao'}
+                  {worlds.length === 0 ? 'Mapear planeta' : 'Nova missão'}
                 </Link>
               }
             />
@@ -179,22 +196,32 @@ export default function Dashboard() {
                 const world = worlds.find((w) => w.id === m.world_id)
                 const accent = world ? (ACCENT[world.accent] ?? ACCENT.azure) : null
                 return (
-                  <li key={m.id} className="flex items-center gap-3 px-5 py-3">
+                  <li key={m.id} className="flex items-center gap-3 px-5 py-3.5">
                     <span
                       className={`size-1.5 shrink-0 rounded-full ${accent?.dot ?? 'bg-faint'}`}
                       aria-hidden
                     />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">
-                      {m.title}
-                    </span>
-                    {m.due_date && (
-                      <span className="shrink-0 text-[12px] tabular-nums text-faint">
-                        {new Date(`${m.due_date}T12:00`).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                        })}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13.5px] text-text">{m.title}</p>
+                      {world && (
+                        <p className="mt-0.5 text-[11px] text-faint">{world.name}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLOR[m.priority]}`}
+                      >
+                        {PRIORITY_LABEL[m.priority]}
                       </span>
-                    )}
+                      {m.due_date && (
+                        <span className="text-[11px] tabular-nums text-faint">
+                          {new Date(`${m.due_date}T12:00`).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </li>
                 )
               })}
@@ -202,9 +229,10 @@ export default function Dashboard() {
           )}
         </section>
 
+        {/* Visão dos planetas */}
         <section className="overflow-hidden rounded-[16px] border border-line bg-surface">
           <header className="flex items-center justify-between border-b border-line px-5 py-4">
-            <h2 className="text-[14px] font-semibold text-text">Planetas</h2>
+            <h2 className="text-[14px] font-semibold text-text">Visão dos planetas</h2>
             <Link
               to="/planetas"
               className="flex items-center gap-1 text-[13px] text-azure transition-colors duration-150 hover:text-azure-deep"
@@ -215,43 +243,139 @@ export default function Dashboard() {
           </header>
 
           {loading ? (
-            <div className="h-44 animate-pulse" aria-hidden />
-          ) : worlds.length === 0 ? (
+            <div className="h-56 animate-pulse" aria-hidden />
+          ) : !spotlightWorld ? (
             <EmptyState
               icon={Globe2}
               title="Nenhum planeta"
-              note="Planetas agrupam suas missoes por contexto."
+              note="Planetas agrupam suas missões por contexto."
             />
           ) : (
-            <ul className="divide-y divide-line">
-              {worlds.slice(0, 5).map((w) => {
-                const mine = missions.filter((m) => m.world_id === w.id)
-                const done = mine.filter((m) => m.status === 'done').length
-                const p = mine.length ? Math.round((done / mine.length) * 100) : 0
-                const accent = ACCENT[w.accent] ?? ACCENT.azure
-                return (
-                  <li key={w.id} className="flex items-center gap-3 px-5 py-3">
-                    <span className="text-[15px]" aria-hidden>
-                      {w.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="mb-1 truncate text-[13px] font-medium text-text">
-                        {w.name}
-                      </p>
-                      <div className="h-1 overflow-hidden rounded-full bg-raised">
-                        <div
-                          className={`h-full rounded-full ${accent.bar}`}
-                          style={{ width: `${p}%` }}
-                        />
+            <div className="flex flex-col">
+              {/* Banner do planeta em destaque */}
+              <div className="relative h-[140px] overflow-hidden bg-raised">
+                <img
+                  src={`/assets/planets/${spotlightWorld.id}-banner.jpg`}
+                  alt={spotlightWorld.name}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[18px]">{spotlightWorld.icon}</span>
+                    <p className="text-[15px] font-semibold text-white">
+                      {spotlightWorld.name}
+                    </p>
+                  </div>
+                  {spotlightWorld.description && (
+                    <p className="mt-0.5 line-clamp-1 text-[11px] text-white/70">
+                      {spotlightWorld.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lista dos planetas */}
+              <ul className="divide-y divide-line">
+                {worlds.slice(0, 4).map((w) => {
+                  const mine = missions.filter((m) => m.world_id === w.id)
+                  const done = mine.filter((m) => m.status === 'done').length
+                  const p = mine.length ? Math.round((done / mine.length) * 100) : 0
+                  const accent = ACCENT[w.accent] ?? ACCENT.azure
+                  return (
+                    <li key={w.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="text-[14px]" aria-hidden>{w.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="mb-1 truncate text-[12px] font-medium text-text">
+                          {w.name}
+                        </p>
+                        <div className="h-1 overflow-hidden rounded-full bg-raised">
+                          <div
+                            className={`h-full rounded-full ${accent.bar}`}
+                            style={{ width: `${p}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 text-[12px] tabular-nums text-faint">
-                      {done}/{mine.length}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
+                      <span className="shrink-0 text-[11px] tabular-nums text-faint">
+                        {done}/{mine.length}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        {/* Membro em destaque */}
+        <section className="overflow-hidden rounded-[16px] border border-line bg-surface">
+          <header className="border-b border-line px-5 py-4">
+            <h2 className="text-[14px] font-semibold text-text">Membro em destaque</h2>
+          </header>
+
+          {!crew ? (
+            <EmptyState
+              icon={Users}
+              title="Sem tripulante"
+              note="Escolha um membro para o posto."
+              action={
+                <Link
+                  to="/tripulacao"
+                  className="inline-flex h-9 items-center rounded-[10px] border border-line bg-surface px-4 text-[13px] font-medium text-text transition-colors duration-150 hover:bg-raised"
+                >
+                  Ver tripulação
+                </Link>
+              }
+            />
+          ) : (
+            <div className="flex flex-col items-center px-5 py-6">
+              {/* Retrato do tripulante */}
+              <div className="relative mb-4 h-[140px] w-full overflow-hidden rounded-[12px] bg-raised">
+                <img
+                  src={`/assets/crew/${crew.id}.png`}
+                  alt={crew.name}
+                  className="h-full w-full object-contain object-bottom"
+                  onError={(e) => {
+                    const el = e.target as HTMLImageElement
+                    el.style.display = 'none'
+                    const fallback = el.nextElementSibling as HTMLElement | null
+                    if (fallback) fallback.style.display = 'grid'
+                  }}
+                />
+                {/* Fallback se imagem não existir */}
+                <span
+                  className="absolute inset-0 hidden place-items-center text-[48px]"
+                  aria-hidden
+                >
+                  {crew.portrait}
+                </span>
+              </div>
+
+              <p className="text-[16px] font-semibold text-text">{crew.name}</p>
+              <p className="mb-3 text-[12px] text-muted">{crew.role}</p>
+
+              <p className="mb-4 text-center text-[13px] italic leading-relaxed text-muted">
+                "{crew.line}"
+              </p>
+
+              <div className="w-full rounded-[10px] bg-raised px-3.5 py-3">
+                <div className="flex items-start gap-2">
+                  <Sparkles size={13} className="mt-0.5 shrink-0 text-ember" aria-hidden />
+                  <p className="text-[12px] leading-relaxed text-muted">{crew.perk}</p>
+                </div>
+              </div>
+
+              <Link
+                to="/tripulacao"
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-[13px] font-medium text-text transition-colors duration-150 hover:bg-raised"
+              >
+                Ver perfil
+                <ArrowRight size={13} aria-hidden />
+              </Link>
+            </div>
           )}
         </section>
       </div>
@@ -259,13 +383,13 @@ export default function Dashboard() {
   )
 }
 
-function Stat({
+function StatCard({
   icon: Icon,
   label,
   value,
   note,
 }: {
-  icon: typeof Globe2
+  icon: LucideIcon
   label: string
   value: number | string
   note: string

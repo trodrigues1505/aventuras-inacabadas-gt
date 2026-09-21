@@ -22,13 +22,13 @@ type Item = {
 }
 
 const ITEMS: Item[] = [
-  { to: '/', label: 'Ponte', icon: LayoutDashboard, ready: true },
-  { to: '/planetas', label: 'Planetas', icon: Globe2, ready: true },
-  { to: '/missoes', label: 'Missoes', icon: Radar, ready: true },
-  { to: '/tripulacao', label: 'Tripulacao', icon: Users, ready: true },
-  { to: '/registro', label: 'Registro', icon: TrendingUp, ready: false },
-  { to: '/painel', label: 'Painel', icon: Shield, ready: true, adminOnly: true },
-  { to: '/configuracoes', label: 'Configuracoes', icon: Settings, ready: true },
+  { to: '/',              label: 'Ponte',         icon: LayoutDashboard, ready: true },
+  { to: '/planetas',      label: 'Planetas',      icon: Globe2,          ready: true },
+  { to: '/missoes',       label: 'Missões',       icon: Radar,           ready: true },
+  { to: '/tripulacao',    label: 'Tripulação',    icon: Users,           ready: true },
+  { to: '/registro',      label: 'Registro',      icon: TrendingUp,      ready: false },
+  { to: '/painel',        label: 'Painel',        icon: Shield,          ready: true, adminOnly: true },
+  { to: '/configuracoes', label: 'Configurações', icon: Settings,        ready: true },
 ]
 
 const MOBILE_ROUTES = ['/', '/planetas', '/missoes', '/configuracoes']
@@ -40,8 +40,6 @@ export default function AppShell() {
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr]">
-      {/* A navegação mantém o azul profundo da nave enquanto o conteúdo
-          fica claro: o casco em volta, a janela no meio. */}
       <aside className="hidden flex-col gap-8 bg-hull px-5 py-7 md:flex">
         <div>
           <p className="display text-[19px] leading-tight text-hull-text">
@@ -101,7 +99,7 @@ function SideLink({ item }: { item: Item }) {
     return (
       <span
         className="flex cursor-default select-none items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] text-hull-faint"
-        title="Disponivel nas proximas fases"
+        title="Disponível nas próximas fases"
       >
         <Icon size={17} aria-hidden />
         {label}

@@ -31,15 +31,17 @@ export type World = {
   updated_at: string
 }
 
-/**
- * Acento do mundo como chave, não como hex: a paleta continua
- * sendo decidida no design system. Guardar '#8b5cf6' no banco
- * significaria que trocar a paleta exige migração de dados.
- */
 export type WorldAccent = 'azure' | 'good' | 'ember' | 'bad' | 'violet' | 'cyan'
 
 export type Priority = 'low' | 'mid' | 'high'
-export type MissionStatus = 'open' | 'done'
+
+/**
+ * open       → A fazer
+ * in_progress → Em andamento
+ * review     → Em revisão
+ * done       → Concluídas
+ */
+export type MissionStatus = 'open' | 'in_progress' | 'review' | 'done'
 
 export type Mission = {
   id: string
