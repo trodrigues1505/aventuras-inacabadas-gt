@@ -91,7 +91,7 @@ export default function AppShell() {
   const mobile = items.filter((i) => MOBILE_ROUTES.includes(i.to))
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr]">
+    <div className="min-h-dvh md:grid md:h-dvh md:grid-cols-[248px_1fr] md:overflow-hidden">
       <aside className="hidden flex-col gap-8 bg-hull px-5 py-7 md:flex">
         <div>
           <p className="display text-[19px] leading-tight text-hull-text">
@@ -116,7 +116,7 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="pb-24 md:pb-0">
+      <div className="pb-24 md:h-dvh md:overflow-auto md:pb-0">
         <Outlet />
       </div>
 

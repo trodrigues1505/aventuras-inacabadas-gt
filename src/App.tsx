@@ -17,12 +17,9 @@ import { GalaxyScreen } from './components/galaxy'
 function GalaxyPage() {
   const { playerState } = useAuth()
   return (
-    <div style={{ height: '100dvh' }}>
-      <GalaxyScreen
-        playerXP={playerState?.xp ?? 0}
-        playerLevel={playerState?.level ?? 1}
-      />
-    </div>
+    <GalaxyScreen
+      playerXP={playerState?.xp ?? 0}
+    />
   )
 }
 

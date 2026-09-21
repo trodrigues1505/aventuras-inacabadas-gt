@@ -41,12 +41,16 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
     const update = () => {
       const container = svgRef.current?.parentElement
       if (!container) return
-      const s = Math.min(container.clientWidth, container.clientHeight, 700)
+      // Usar clientWidth apenas — clientHeight pode ser 0 se o pai não tem altura definida
+      const s = Math.min(container.clientWidth, 680)
       setSvgSize(s)
     }
     update()
     window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+    // ResizeObserver para capturar mudanças no container sem depender do window
+    const ro = new ResizeObserver(update)
+    if (svgRef.current?.parentElement) ro.observe(svgRef.current.parentElement)
+    return () => { window.removeEventListener('resize', update); ro.disconnect() }
   }, [])
 
   return (

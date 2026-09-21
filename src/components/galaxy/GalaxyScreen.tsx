@@ -70,7 +70,7 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
   )
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-[#050810]">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-[#050810]">
 
       {/* ── Header ── */}
       <div className="flex shrink-0 items-center justify-between border-b border-[#0d1b2a] bg-[#050810]/90 px-5 py-3 backdrop-blur-sm">
