@@ -8,8 +8,8 @@ import {
   Radar,
   Trash2,
 } from 'lucide-react'
-import { Button, IconButton } from '../components/Button'
-import { Badge, ConfirmDialog, EmptyState, SectionHeader } from '../components/Bits'
+import { Button } from '../components/Button'
+import { Badge, ConfirmDialog, EmptyState } from '../components/Bits'
 import { Field, Input, Select, Textarea } from '../components/Field'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../hooks/AuthProvider'

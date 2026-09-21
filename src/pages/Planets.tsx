@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Globe2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Button, IconButton } from '../components/Button'
+import { Button } from '../components/Button'
 import { ConfirmDialog, EmptyState, SectionHeader } from '../components/Bits'
 import { Field, Input, Select, Textarea } from '../components/Field'
 import { Modal } from '../components/Modal'

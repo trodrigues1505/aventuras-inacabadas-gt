@@ -12,7 +12,6 @@ export type MissionDraft = {
   reward: number
 }
 
-/** Campos que podem ser atualizados no banco — inclui status para mover no Kanban. */
 type MissionUpdate = Partial<MissionDraft> & { status?: MissionStatus }
 
 export async function listMissions(userId: string): Promise<Mission[]> {
@@ -69,11 +68,6 @@ export type CompletionResult = {
   crewNote: string | null
 }
 
-/**
- * Conclui (done) ou reabre (open) uma missão e liquida a recompensa.
- * Única função que toca XP e créditos — o Kanban chama updateMission
- * diretamente para os status intermediários (in_progress, review).
- */
 export async function toggleMission(
   mission: Mission,
   state: PlayerState,
@@ -82,7 +76,6 @@ export async function toggleMission(
   const completing = mission.status !== 'done'
 
   if (!completing) {
-    // Reabre: volta para 'open' sem mexer em XP/créditos
     const { data, error } = await supabase
       .from('missions')
       .update({ status: 'open', completed_at: null })
@@ -102,16 +95,15 @@ export async function toggleMission(
     }
   }
 
-  // Calcula recompensa base
   const baseXp = XP_BY_PRIORITY[mission.priority] ?? 10
   const baseCredits = mission.reward ?? 0
 
-  // Aplica bônus do tripulante
-  const bonus = applyBonus(state.crew_id, mission, allMissions)
-  const xpGained = Math.round(baseXp * (bonus.xpMultiplier ?? 1)) + (bonus.xpFlat ?? 0)
-  const creditsGained = Math.round(baseCredits * (bonus.creditsMultiplier ?? 1)) + (bonus.creditsFlat ?? 0)
+  // Assinatura real: (crewId, mission, baseXp, baseCredits, allMissions)
+  const bonus = applyBonus(state.crew_id, mission, baseXp, baseCredits, allMissions)
 
-  // Calcula level up
+  const xpGained = baseXp + bonus.xp
+  const creditsGained = baseCredits + bonus.credits
+
   let newXp = state.xp + xpGained
   let newLevel = state.level
   let leveledUpTo: number | null = null
@@ -123,7 +115,6 @@ export async function toggleMission(
     leveledUpTo = newLevel
   }
 
-  // Persiste missão e player_state atomicamente via duas chamadas
   const [missionResult, stateResult] = await Promise.all([
     supabase
       .from('missions')
@@ -152,6 +143,6 @@ export async function toggleMission(
     xpGained,
     creditsGained,
     leveledUpTo,
-    crewNote: bonus.note ?? null,
+    crewNote: bonus.note,
   }
 }
