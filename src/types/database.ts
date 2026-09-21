@@ -19,6 +19,8 @@ export type PlayerState = {
   updated_at: string
 }
 
+export type PlanetImage = 'varda' | 'thalassa' | 'zerion' | 'kestrel' | 'nyx'
+
 export type World = {
   id: string
   user_id: string
@@ -26,6 +28,9 @@ export type World = {
   description: string | null
   icon: string
   accent: WorldAccent
+  slug: string | null
+  /** Imagem temática do universo — independente do nome da categoria. */
+  planet_image: PlanetImage | null
   created_at: string
   updated_at: string
 }
@@ -47,14 +52,11 @@ export type Mission = {
   priority: Priority
   status: MissionStatus
   due_date: string | null
-  /** Calculado automaticamente por prioridade — não editável pelo usuário. */
   reward: number
   completed_at: string | null
   estimated_minutes: number | null
   recurrence: Recurrence | null
-  /** Usado quando recurrence = 'custom': a cada X dias. */
   recurrence_days: number | null
-  /** Missão bloqueada até esta outra ser concluída. */
   depends_on: string | null
   created_at: string
   updated_at: string
