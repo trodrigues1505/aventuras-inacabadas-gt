@@ -18,13 +18,12 @@ export default function Planets() {
   const { worlds, missions, loading } = useGame()
   const [selected, setSelected] = useState<World | null>(null)
 
-  const missionsByWorld = useMemo(() => {
-    const map = new Map()
-    missions.forEach(m => {
-      if (m.world_id) map.set(m.world_id, (map.get(m.world_id) ?? 0) + 1)
-    })
-    return map
-  }, [missions])
+  const missionsByWorld = useMemo(() =>
+    missions.reduce((acc: Record<string, number>, m) => {
+      if (m.world_id) acc[m.world_id] = (acc[m.world_id] ?? 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  , [missions])
 
   const spotlight = selected ?? (worlds.length > 0 ? worlds[0] : null)
 
@@ -80,7 +79,7 @@ export default function Planets() {
           <div className="flex flex-col gap-3">
             {worlds.map(world => {
               const banner = planetBanner(world.slug ?? '')
-              const mCount = missionsByWorld.get(world.id) ?? 0
+              const mCount = missionsByWorld[world.id] ?? 0
               const isSpotlight = spotlight?.id === world.id
 
               return (
@@ -151,7 +150,7 @@ export default function Planets() {
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { label: 'Missões', value: missionsByWorld.get(spotlight.id) ?? 0 },
+                    { label: 'Missões', value: missionsByWorld[spotlight.id] ?? 0 },
                     { label: 'Concluídas', value: missions.filter(m => m.world_id === spotlight.id && m.status === 'done').length },
                   ].map(s => (
                     <div key={s.label} className="rounded-xl bg-raised p-3 text-center">
