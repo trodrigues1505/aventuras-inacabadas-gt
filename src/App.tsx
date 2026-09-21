@@ -17,9 +17,11 @@ import { GalaxyScreen } from './components/galaxy'
 function GalaxyPage() {
   const { playerState } = useAuth()
   return (
-    <GalaxyScreen
-      playerXP={playerState?.xp ?? 0}
-    />
+    <div className="h-full">
+      <GalaxyScreen
+        playerXP={playerState?.xp ?? 0}
+      />
+    </div>
   )
 }
 
