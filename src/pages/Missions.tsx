@@ -1,12 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   ChevronRight,
+  Clock,
   Coins,
+  ExternalLink,
+  Link2,
+  Lock,
   Pencil,
   Plus,
   Radar,
+  RefreshCw,
+  Tag,
   Trash2,
+  X,
 } from 'lucide-react'
 import { Button } from '../components/Button'
 import { Badge, ConfirmDialog, EmptyState } from '../components/Bits'
@@ -16,42 +23,47 @@ import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
 import { useToast } from '../hooks/ToastProvider'
 import {
+  createLink,
   createMission,
+  createSubtask,
+  createTag,
   deleteMission,
+  deleteLink,
+  deleteSubtask,
+  listLinks,
+  listMissionTags,
+  listSubtasks,
+  listTags,
+  setMissionTags,
   toggleMission,
+  toggleSubtask,
   updateMission,
   type MissionDraft,
 } from '../services/missionService'
-import { ACCENT, PRIORITY_LABEL } from '../data/gameConfig'
-import type { Mission, MissionStatus, Priority, World } from '../types/database'
+import { ACCENT, CREDITS_BY_PRIORITY, PRIORITY_LABEL, XP_BY_PRIORITY } from '../data/gameConfig'
+import type { Mission, MissionLink, MissionStatus, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
 
-type KanbanCol = {
-  key: MissionStatus
-  label: string
-  color: string
-  dot: string
-}
+type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string }
 
 const COLUMNS: KanbanCol[] = [
-  { key: 'open',        label: 'A fazer',      color: 'text-faint',  dot: 'bg-faint' },
-  { key: 'in_progress', label: 'Em andamento',  color: 'text-azure',  dot: 'bg-azure' },
-  { key: 'review',      label: 'Em revisão',    color: 'text-ember',  dot: 'bg-ember' },
-  { key: 'done',        label: 'Concluídas',    color: 'text-good',   dot: 'bg-good'  },
+  { key: 'open',        label: 'A fazer',     color: 'text-faint',  dot: 'bg-faint'  },
+  { key: 'in_progress', label: 'Em andamento', color: 'text-azure',  dot: 'bg-azure'  },
+  { key: 'review',      label: 'Em revisão',   color: 'text-ember',  dot: 'bg-ember'  },
+  { key: 'done',        label: 'Concluídas',   color: 'text-good',   dot: 'bg-good'   },
 ]
 
-const BLANK: MissionDraft = {
-  title: '',
-  description: null,
-  world_id: null,
-  priority: 'mid',
-  due_date: null,
-  reward: 10,
+const PRIORITY_TONE: Record<Priority, 'bad' | 'ember' | 'good'> = {
+  high: 'bad', mid: 'ember', low: 'good',
 }
 
-const PRIORITY_TONE: Record<Priority, 'bad' | 'ember' | 'good'> = {
-  high: 'bad',
-  mid: 'ember',
-  low: 'good',
+const RECURRENCE_LABEL: Record<Recurrence, string> = {
+  daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal', custom: 'Personalizada',
+}
+
+const BLANK: MissionDraft = {
+  title: '', description: null, world_id: null,
+  priority: 'mid', due_date: null, estimated_minutes: null,
+  recurrence: null, recurrence_days: null, depends_on: null,
 }
 
 export default function Missions() {
@@ -59,26 +71,28 @@ export default function Missions() {
   const { worlds, missions, putMission, dropMission, loading } = useGame()
   const toast = useToast()
 
-  const [worldFilter, setWorldFilter] = useState<string>('')
+  const [worldFilter, setWorldFilter] = useState('')
   const [editing, setEditing] = useState<Mission | null>(null)
   const [composing, setComposing] = useState(false)
   const [removing, setRemoving] = useState<Mission | null>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
 
-  // Missões agrupadas por coluna, com filtro de planeta aplicado
   const byStatus = useMemo(() => {
     const filtered = worldFilter
       ? missions.filter((m) => m.world_id === worldFilter)
       : missions
-
     return Object.fromEntries(
-      COLUMNS.map((col) => [
-        col.key,
-        filtered.filter((m) => m.status === col.key),
-      ]),
+      COLUMNS.map((col) => [col.key, filtered.filter((m) => m.status === col.key)]),
     ) as Record<MissionStatus, Mission[]>
   }, [missions, worldFilter])
+
+  // Verifica se missão está bloqueada por dependência
+  function isBlocked(mission: Mission): boolean {
+    if (!mission.depends_on) return false
+    const dep = missions.find((m) => m.id === mission.depends_on)
+    return dep ? dep.status !== 'done' : false
+  }
 
   async function save(draft: MissionDraft) {
     if (!session) return
@@ -98,16 +112,13 @@ export default function Missions() {
     }
   }
 
-  // Move missão para o próximo status na sequência do Kanban
   async function advance(mission: Mission) {
-    if (pending) return
+    if (pending || isBlocked(mission)) return
     const cols = COLUMNS.map((c) => c.key)
     const idx = cols.indexOf(mission.status)
     if (idx === -1 || idx >= cols.length - 1) return
-
     const nextStatus = cols[idx + 1]
 
-    // Quando avança para 'done', usa o fluxo existente de recompensa
     if (nextStatus === 'done') {
       if (!playerState) return
       setPending(mission.id)
@@ -119,7 +130,7 @@ export default function Missions() {
         if (result.leveledUpTo) {
           toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
         } else if (result.xpGained > 0) {
-          toast('reward', `+${result.xpGained} dados de exploração · +${result.creditsGained} créditos`)
+          toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)
         }
       } catch (e) {
         toast('error', e instanceof Error ? e.message : 'Não foi possível concluir.')
@@ -129,18 +140,9 @@ export default function Missions() {
       return
     }
 
-    // Para os outros status, atualiza só o campo status
     setPending(mission.id)
     try {
-      const saved = await updateMission(mission.id, {
-        title: mission.title,
-        description: mission.description,
-        world_id: mission.world_id,
-        priority: mission.priority,
-        due_date: mission.due_date,
-        reward: mission.reward,
-        status: nextStatus,
-      })
+      const saved = await updateMission(mission.id, { status: nextStatus })
       putMission(saved)
     } catch (e) {
       toast('error', e instanceof Error ? e.message : 'Não foi possível mover.')
@@ -149,7 +151,6 @@ export default function Missions() {
     }
   }
 
-  // Reabrir missão concluída (done → open)
   async function reopen(mission: Mission) {
     if (!playerState || pending) return
     setPending(mission.id)
@@ -184,13 +185,11 @@ export default function Missions() {
   const noWorlds = worlds.length === 0
 
   return (
-    <main className="flex h-full flex-col px-5 py-8 md:px-10 md:py-10">
+    <main className="flex h-[calc(100dvh-0px)] flex-col px-5 py-8 md:px-10 md:py-10">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="display text-[22px] text-text">Missões</h1>
-          <p className="mt-1 text-[13px] text-muted">
-            Organize, acompanhe e conclua suas missões.
-          </p>
+          <p className="mt-1 text-[13px] text-muted">Organize, acompanhe e conclua suas missões.</p>
         </div>
         <div className="flex items-center gap-3">
           {worlds.length > 0 && (
@@ -202,9 +201,7 @@ export default function Missions() {
             >
               <option value="">Todos os planetas</option>
               {worlds.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.icon} {w.name}
-                </option>
+                <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
               ))}
             </Select>
           )}
@@ -224,28 +221,20 @@ export default function Missions() {
           />
         </div>
       ) : (
-        /* Kanban — scroll horizontal em mobile */
         <div className="min-h-0 flex-1 overflow-x-auto">
           <div className="flex h-full gap-4" style={{ minWidth: 'max(100%, 900px)' }}>
             {COLUMNS.map((col) => {
               const cards = byStatus[col.key] ?? []
               return (
-                <div
-                  key={col.key}
-                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
-                >
-                  {/* Cabeçalho da coluna */}
+                <div key={col.key} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
                   <div className="mb-3 flex items-center gap-2">
                     <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
-                    <h2 className={`text-[13px] font-semibold ${col.color}`}>
-                      {col.label}
-                    </h2>
+                    <h2 className={`text-[13px] font-semibold ${col.color}`}>{col.label}</h2>
                     <span className="ml-auto rounded-full bg-raised px-2 py-0.5 text-[11px] tabular-nums text-faint">
                       {cards.length}
                     </span>
                   </div>
 
-                  {/* Coluna com scroll independente */}
                   <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
                     {loading ? (
                       <SkeletonCards />
@@ -261,6 +250,8 @@ export default function Missions() {
                           world={worlds.find((w) => w.id === mission.world_id) ?? null}
                           pending={pending === mission.id}
                           isDone={col.key === 'done'}
+                          blocked={isBlocked(mission)}
+                          blockedBy={missions.find((m) => m.id === mission.depends_on) ?? null}
                           onAdvance={() => advance(mission)}
                           onReopen={() => reopen(mission)}
                           onEdit={() => setEditing(mission)}
@@ -268,7 +259,6 @@ export default function Missions() {
                       ))
                     )}
 
-                    {/* Botão rápido de nova missão na coluna "A fazer" */}
                     {col.key === 'open' && !loading && (
                       <button
                         type="button"
@@ -289,16 +279,16 @@ export default function Missions() {
       )}
 
       <MissionForm
+        key={editing?.id ?? (composing ? 'new' : 'closed')}
         open={composing || editing !== null}
         mission={editing}
         worlds={worlds}
+        allMissions={missions}
         busy={busy}
+        userId={session?.user.id ?? ''}
         onSave={save}
         onDelete={editing ? () => setRemoving(editing) : undefined}
-        onClose={() => {
-          setComposing(false)
-          setEditing(null)
-        }}
+        onClose={() => { setComposing(false); setEditing(null) }}
       />
 
       <ConfirmDialog
@@ -313,45 +303,48 @@ export default function Missions() {
   )
 }
 
+// ─── Kanban Card ─────────────────────────────────────────────────
+
 function KanbanCard({
-  mission,
-  world,
-  pending,
-  isDone,
-  onAdvance,
-  onReopen,
-  onEdit,
+  mission, world, pending, isDone, blocked, blockedBy,
+  onAdvance, onReopen, onEdit,
 }: {
   mission: Mission
   world: World | null
   pending: boolean
   isDone: boolean
+  blocked: boolean
+  blockedBy: Mission | null
   onAdvance: () => void
   onReopen: () => void
   onEdit: () => void
 }) {
   const accent = world ? (ACCENT[world.accent] ?? ACCENT.azure) : null
-  const overdue =
-    !isDone &&
-    mission.due_date &&
+  const overdue = !isDone && mission.due_date &&
     mission.due_date < new Date().toISOString().slice(0, 10)
 
   return (
     <article
       className={`group relative flex flex-col gap-2 rounded-[12px] border bg-surface p-3 transition-all duration-150 hover:shadow-sm ${
-        isDone ? 'opacity-70' : 'border-line'
+        isDone ? 'opacity-60 border-line' :
+        blocked ? 'border-faint/40 bg-raised/60' : 'border-line'
       } ${pending ? 'opacity-50' : ''}`}
     >
-      {/* Título */}
-      <p
-        className={`text-[13px] font-medium leading-snug ${
-          isDone ? 'text-faint line-through' : 'text-text'
-        }`}
-      >
+      {blocked && (
+        <div className="flex items-center gap-1.5 rounded-[6px] bg-ember/10 px-2 py-1">
+          <Lock size={10} className="text-ember" aria-hidden />
+          <span className="text-[11px] text-ember">
+            Aguarda: {blockedBy?.title ?? '…'}
+          </span>
+        </div>
+      )}
+
+      <p className={`text-[13px] font-medium leading-snug ${
+        isDone ? 'text-faint line-through' : blocked ? 'text-muted' : 'text-text'
+      }`}>
         {mission.title}
       </p>
 
-      {/* Planeta */}
       {world && accent && (
         <div className="flex items-center gap-1.5">
           <span className={`size-1.5 rounded-full ${accent.dot}`} aria-hidden />
@@ -359,7 +352,6 @@ function KanbanCard({
         </div>
       )}
 
-      {/* Meta info */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {!isDone && (
           <Badge tone={PRIORITY_TONE[mission.priority]}>
@@ -367,27 +359,29 @@ function KanbanCard({
           </Badge>
         )}
         {mission.due_date && (
-          <span
-            className={`flex items-center gap-1 text-[11px] ${
-              overdue ? 'font-medium text-bad' : 'text-faint'
-            }`}
-          >
+          <span className={`flex items-center gap-1 text-[11px] ${
+            overdue ? 'font-medium text-bad' : 'text-faint'
+          }`}>
             <CalendarDays size={11} aria-hidden />
             {new Date(`${mission.due_date}T12:00`).toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short',
+              day: '2-digit', month: 'short',
             })}
           </span>
         )}
-        {!isDone && mission.reward > 0 && (
+        {mission.estimated_minutes && (
           <span className="flex items-center gap-1 text-[11px] text-faint">
-            <Coins size={11} aria-hidden />
-            {mission.reward}
+            <Clock size={11} aria-hidden />
+            {mission.estimated_minutes}min
+          </span>
+        )}
+        {mission.recurrence && (
+          <span className="flex items-center gap-1 text-[11px] text-faint">
+            <RefreshCw size={10} aria-hidden />
+            {RECURRENCE_LABEL[mission.recurrence]}
           </span>
         )}
       </div>
 
-      {/* Ações */}
       <div className="flex items-center justify-between pt-1">
         <button
           type="button"
@@ -411,7 +405,7 @@ function KanbanCard({
           <button
             type="button"
             onClick={onAdvance}
-            disabled={pending}
+            disabled={pending || blocked}
             className="flex items-center gap-1 rounded-[6px] bg-raised px-2 py-1 text-[11px] font-medium text-muted transition-colors duration-150 hover:bg-interactive hover:text-text disabled:opacity-40"
           >
             Avançar
@@ -423,55 +417,153 @@ function KanbanCard({
   )
 }
 
+// ─── Formulário expandido ─────────────────────────────────────────
+
+type FormTab = 'basic' | 'subtasks' | 'extras'
+
 function MissionForm({
-  open,
-  mission,
-  worlds,
-  busy,
-  onSave,
-  onDelete,
-  onClose,
+  open, mission, worlds, allMissions, busy, userId,
+  onSave, onDelete, onClose,
 }: {
   open: boolean
   mission: Mission | null
   worlds: World[]
+  allMissions: Mission[]
   busy: boolean
+  userId: string
   onSave: (draft: MissionDraft) => void
   onDelete?: () => void
   onClose: () => void
 }) {
-  const initial = useMemo<MissionDraft>(
-    () =>
-      mission
-        ? {
-            title: mission.title,
-            description: mission.description,
-            world_id: mission.world_id,
-            priority: mission.priority,
-            due_date: mission.due_date,
-            reward: mission.reward,
-          }
-        : { ...BLANK, world_id: worlds[0]?.id ?? null },
-    [mission, worlds],
+  // Sempre começa zerado — a key no pai garante remontagem
+  const [draft, setDraft] = useState<MissionDraft>(() =>
+    mission ? {
+      title: mission.title,
+      description: mission.description,
+      world_id: mission.world_id,
+      priority: mission.priority,
+      due_date: mission.due_date,
+      estimated_minutes: mission.estimated_minutes,
+      recurrence: mission.recurrence,
+      recurrence_days: mission.recurrence_days,
+      depends_on: mission.depends_on,
+    } : { ...BLANK, world_id: worlds[0]?.id ?? null }
   )
-
-  const [draft, setDraft] = useState<MissionDraft>(initial)
   const [touched, setTouched] = useState(false)
-  const [key, setKey] = useState(0)
-  useMemo(() => {
-    setDraft(initial)
-    setTouched(false)
-    setKey((n) => n + 1)
-  }, [initial])
+  const [tab, setTab] = useState<FormTab>('basic')
 
-  const titleError =
-    touched && !draft.title.trim() ? 'Descreva o que precisa ser feito.' : undefined
+  // Subtarefas
+  const [subtasks, setSubtasks] = useState<Subtask[]>([])
+  const [newSubtask, setNewSubtask] = useState('')
+  const [subtaskBusy, setSubtaskBusy] = useState(false)
+
+  // Links
+  const [links, setLinks] = useState<MissionLink[]>([])
+  const [newLinkLabel, setNewLinkLabel] = useState('')
+  const [newLinkUrl, setNewLinkUrl] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+
+  // Tags
+  const [allTags, setAllTags] = useState<TagType[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [newTagName, setNewTagName] = useState('')
+  const [tagBusy, setTagBusy] = useState(false)
+
+  const subtaskInputRef = useRef<HTMLInputElement>(null)
+
+  // Carrega subtarefas, links e tags quando edita missão existente
+  useEffect(() => {
+    if (!mission || !open) return
+    listSubtasks(mission.id).then(setSubtasks).catch(() => {})
+    listLinks(mission.id).then(setLinks).catch(() => {})
+    listMissionTags(mission.id).then(setSelectedTags).catch(() => {})
+  }, [mission, open])
+
+  useEffect(() => {
+    if (!open || !userId) return
+    listTags(userId).then(setAllTags).catch(() => {})
+  }, [open, userId])
+
+  const subtaskProgress = subtasks.length > 0
+    ? Math.round((subtasks.filter((s) => s.done).length / subtasks.length) * 100)
+    : 0
+
+  const titleError = touched && !draft.title.trim() ? 'Descreva o que precisa ser feito.' : undefined
 
   function submit() {
     setTouched(true)
     if (!draft.title.trim()) return
     onSave({ ...draft, title: draft.title.trim() })
   }
+
+  async function addSubtask() {
+    if (!mission || !newSubtask.trim() || subtaskBusy) return
+    setSubtaskBusy(true)
+    try {
+      const s = await createSubtask(userId, mission.id, newSubtask.trim(), subtasks.length)
+      setSubtasks((prev) => [...prev, s])
+      setNewSubtask('')
+      subtaskInputRef.current?.focus()
+    } catch { /* silencioso */ }
+    finally { setSubtaskBusy(false) }
+  }
+
+  async function toggleSub(id: string, done: boolean) {
+    const updated = await toggleSubtask(id, done)
+    setSubtasks((prev) => prev.map((s) => s.id === id ? updated : s))
+  }
+
+  async function removeSub(id: string) {
+    await deleteSubtask(id)
+    setSubtasks((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  async function addLink() {
+    if (!mission || !newLinkUrl.trim() || linkBusy) return
+    setLinkBusy(true)
+    try {
+      const l = await createLink(userId, mission.id, newLinkLabel.trim() || newLinkUrl, newLinkUrl.trim())
+      setLinks((prev) => [...prev, l])
+      setNewLinkLabel('')
+      setNewLinkUrl('')
+    } catch { /* silencioso */ }
+    finally { setLinkBusy(false) }
+  }
+
+  async function removeLink(id: string) {
+    await deleteLink(id)
+    setLinks((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  async function addTag() {
+    if (!newTagName.trim() || tagBusy) return
+    setTagBusy(true)
+    try {
+      const t = await createTag(userId, newTagName.trim(), 'azure')
+      setAllTags((prev) => [...prev, t])
+      setSelectedTags((prev) => [...prev, t.id])
+      setNewTagName('')
+      if (mission) await setMissionTags(mission.id, [...selectedTags, t.id])
+    } catch { /* silencioso */ }
+    finally { setTagBusy(false) }
+  }
+
+  async function toggleTag(tagId: string) {
+    const next = selectedTags.includes(tagId)
+      ? selectedTags.filter((id) => id !== tagId)
+      : [...selectedTags, tagId]
+    setSelectedTags(next)
+    if (mission) await setMissionTags(mission.id, next)
+  }
+
+  const rewardPreview = CREDITS_BY_PRIORITY[draft.priority]
+  const xpPreview = draft.due_date ? `${XP_BY_PRIORITY[draft.priority] + 5}` : `${XP_BY_PRIORITY[draft.priority]}`
+
+  const TABS: { key: FormTab; label: string }[] = [
+    { key: 'basic',    label: 'Missão' },
+    { key: 'subtasks', label: `Subtarefas${subtasks.length > 0 ? ` (${subtasks.length})` : ''}` },
+    { key: 'extras',   label: 'Extras' },
+  ]
 
   return (
     <Modal
@@ -486,109 +578,378 @@ function MissionForm({
               Excluir
             </Button>
           )}
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancelar
-          </Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
           <Button onClick={submit} loading={busy}>
             {mission ? 'Salvar' : 'Registrar'}
           </Button>
         </>
       }
     >
-      <div key={key} className="flex flex-col gap-4">
-        <Field label="Missão" error={titleError}>
-          {(id) => (
-            <Input
-              id={id}
-              value={draft.title}
-              placeholder="O que precisa ser feito?"
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              onBlur={() => setTouched(true)}
-              onKeyDown={(e) => e.key === 'Enter' && submit()}
-            />
-          )}
-        </Field>
-
-        <Field label="Detalhes" hint="Opcional.">
-          {(id) => (
-            <Textarea
-              id={id}
-              rows={2}
-              value={draft.description ?? ''}
-              onChange={(e) =>
-                setDraft({ ...draft, description: e.target.value || null })
-              }
-            />
-          )}
-        </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Planeta">
-            {(id) => (
-              <Select
-                id={id}
-                value={draft.world_id ?? ''}
-                onChange={(e) =>
-                  setDraft({ ...draft, world_id: e.target.value || null })
-                }
-              >
-                <option value="">Sem planeta</option>
-                {worlds.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.icon} {w.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </Field>
-
-          <Field label="Prioridade">
-            {(id) => (
-              <Select
-                id={id}
-                value={draft.priority}
-                onChange={(e) =>
-                  setDraft({ ...draft, priority: e.target.value as Priority })
-                }
-              >
-                <option value="low">Baixa</option>
-                <option value="mid">Média</option>
-                <option value="high">Alta</option>
-              </Select>
-            )}
-          </Field>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Prazo" hint="Opcional.">
-            {(id) => (
-              <Input
-                id={id}
-                type="date"
-                value={draft.due_date ?? ''}
-                onChange={(e) =>
-                  setDraft({ ...draft, due_date: e.target.value || null })
-                }
-              />
-            )}
-          </Field>
-
-          <Field label="Créditos" hint="Recompensa ao concluir.">
-            {(id) => (
-              <Input
-                id={id}
-                type="number"
-                min={0}
-                max={200}
-                value={draft.reward}
-                onChange={(e) =>
-                  setDraft({ ...draft, reward: Number(e.target.value) || 0 })
-                }
-              />
-            )}
-          </Field>
-        </div>
+      {/* Abas */}
+      <div className="mb-5 flex gap-0.5 rounded-[10px] bg-raised p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`flex-1 rounded-[8px] px-3 py-1.5 text-[12px] font-medium transition-colors duration-150 ${
+              tab === t.key ? 'bg-surface text-text shadow-sm' : 'text-muted hover:text-text'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
+
+      {/* Aba: Missão */}
+      {tab === 'basic' && (
+        <div className="flex flex-col gap-4">
+          <Field label="Missão" error={titleError}>
+            {(id) => (
+              <Input
+                id={id}
+                value={draft.title}
+                placeholder="O que precisa ser feito?"
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                onBlur={() => setTouched(true)}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+              />
+            )}
+          </Field>
+
+          <Field label="Detalhes" hint="Opcional.">
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={2}
+                value={draft.description ?? ''}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value || null })}
+              />
+            )}
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Planeta">
+              {(id) => (
+                <Select
+                  id={id}
+                  value={draft.world_id ?? ''}
+                  onChange={(e) => setDraft({ ...draft, world_id: e.target.value || null })}
+                >
+                  <option value="">Sem planeta</option>
+                  {worlds.map((w) => (
+                    <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+
+            <Field label="Prioridade">
+              {(id) => (
+                <Select
+                  id={id}
+                  value={draft.priority}
+                  onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}
+                >
+                  <option value="low">Baixa</option>
+                  <option value="mid">Média</option>
+                  <option value="high">Alta</option>
+                </Select>
+              )}
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Prazo" hint="Opcional.">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="date"
+                  value={draft.due_date ?? ''}
+                  onChange={(e) => setDraft({ ...draft, due_date: e.target.value || null })}
+                />
+              )}
+            </Field>
+
+            <Field label="Estimativa">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  min={1}
+                  placeholder="minutos"
+                  value={draft.estimated_minutes ?? ''}
+                  onChange={(e) => setDraft({
+                    ...draft,
+                    estimated_minutes: e.target.value ? Number(e.target.value) : null,
+                  })}
+                />
+              )}
+            </Field>
+          </div>
+
+          {/* Recorrência */}
+          <Field label="Recorrência" hint="Opcional — a missão se recria ao ser concluída.">
+            {(id) => (
+              <Select
+                id={id}
+                value={draft.recurrence ?? ''}
+                onChange={(e) => setDraft({
+                  ...draft,
+                  recurrence: (e.target.value as Recurrence) || null,
+                  recurrence_days: e.target.value === 'custom' ? 1 : null,
+                })}
+              >
+                <option value="">Não recorrente</option>
+                <option value="daily">Diária</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensal</option>
+                <option value="custom">A cada X dias</option>
+              </Select>
+            )}
+          </Field>
+
+          {draft.recurrence === 'custom' && (
+            <Field label="A cada quantos dias?">
+              {(id) => (
+                <Input
+                  id={id}
+                  type="number"
+                  min={1}
+                  value={draft.recurrence_days ?? 1}
+                  onChange={(e) => setDraft({ ...draft, recurrence_days: Number(e.target.value) || 1 })}
+                />
+              )}
+            </Field>
+          )}
+
+          {/* Dependência */}
+          <Field label="Depende de" hint="Opcional — esta missão fica bloqueada até a outra ser concluída.">
+            {(id) => (
+              <Select
+                id={id}
+                value={draft.depends_on ?? ''}
+                onChange={(e) => setDraft({ ...draft, depends_on: e.target.value || null })}
+              >
+                <option value="">Nenhuma dependência</option>
+                {allMissions
+                  .filter((m) => m.id !== mission?.id && m.status !== 'done')
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))}
+              </Select>
+            )}
+          </Field>
+
+          {/* Preview de recompensa */}
+          <div className="flex items-center gap-4 rounded-[10px] bg-raised px-4 py-3 text-[12px]">
+            <span className="text-faint">Recompensa ao concluir:</span>
+            <span className="font-medium text-azure">+{xpPreview} XP</span>
+            <span className="flex items-center gap-1 font-medium text-ember">
+              <Coins size={12} aria-hidden />
+              +{rewardPreview}{draft.due_date ? ` +5 (prazo)` : ''}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Aba: Subtarefas */}
+      {tab === 'subtasks' && (
+        <div className="flex flex-col gap-4">
+          {!mission ? (
+            <p className="rounded-[10px] bg-raised px-4 py-3 text-[13px] text-muted">
+              Salve a missão primeiro para adicionar subtarefas.
+            </p>
+          ) : (
+            <>
+              {subtasks.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-[12px]">
+                    <span className="text-muted">{subtasks.filter((s) => s.done).length}/{subtasks.length} concluídas</span>
+                    <span className="font-medium text-azure">{subtaskProgress}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-raised">
+                    <div
+                      className="h-full rounded-full bg-azure transition-[width] duration-300"
+                      style={{ width: `${subtaskProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <ul className="flex flex-col gap-1">
+                {subtasks.map((s) => (
+                  <li key={s.id} className="group flex items-center gap-2 rounded-[8px] px-2 py-1.5 hover:bg-raised">
+                    <button
+                      type="button"
+                      onClick={() => toggleSub(s.id, !s.done)}
+                      className={`grid size-4 shrink-0 place-items-center rounded-full border transition-all duration-150 ${
+                        s.done
+                          ? 'border-good bg-good text-white'
+                          : 'border-line hover:border-azure'
+                      }`}
+                    >
+                      {s.done && (
+                        <svg viewBox="0 0 10 10" className="size-2" aria-hidden>
+                          <path d="M2 5.2 4 7.2 8 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className={`flex-1 text-[13px] ${s.done ? 'text-faint line-through' : 'text-text'}`}>
+                      {s.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeSub(s.id)}
+                      className="opacity-0 group-hover:opacity-100 text-faint hover:text-bad transition-all duration-150"
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex gap-2">
+                <input
+                  ref={subtaskInputRef}
+                  type="text"
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                  placeholder="Nova subtarefa…"
+                  className="flex-1 rounded-[8px] border border-line bg-surface px-3 py-2 text-[13px] text-text placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-azure/30"
+                />
+                <button
+                  type="button"
+                  onClick={addSubtask}
+                  disabled={!newSubtask.trim() || subtaskBusy}
+                  className="grid size-9 place-items-center rounded-[8px] bg-azure text-white transition-opacity disabled:opacity-40"
+                >
+                  <Plus size={15} aria-hidden />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Aba: Extras (tags + links) */}
+      {tab === 'extras' && (
+        <div className="flex flex-col gap-5">
+          {/* Tags */}
+          <div>
+            <p className="mb-2 flex items-center gap-1.5 text-[12px] font-medium text-faint">
+              <Tag size={12} aria-hidden />
+              Tags
+            </p>
+
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {allTags.map((t) => {
+                const sel = selectedTags.includes(t.id)
+                const accent = ACCENT[t.color as keyof typeof ACCENT] ?? ACCENT.azure
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggleTag(t.id)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all duration-150 ${
+                      sel
+                        ? `${accent.soft} ${accent.text} ring-1 ring-current`
+                        : 'bg-raised text-muted hover:text-text'
+                    }`}
+                  >
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTag()}
+                placeholder="Nova tag…"
+                className="flex-1 rounded-[8px] border border-line bg-surface px-3 py-2 text-[13px] text-text placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-azure/30"
+              />
+              <button
+                type="button"
+                onClick={addTag}
+                disabled={!newTagName.trim() || tagBusy}
+                className="grid size-9 place-items-center rounded-[8px] bg-azure text-white transition-opacity disabled:opacity-40"
+              >
+                <Plus size={15} aria-hidden />
+              </button>
+            </div>
+          </div>
+
+          {/* Links */}
+          {!mission ? (
+            <p className="rounded-[10px] bg-raised px-4 py-3 text-[13px] text-muted">
+              Salve a missão primeiro para adicionar links.
+            </p>
+          ) : (
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-[12px] font-medium text-faint">
+                <Link2 size={12} aria-hidden />
+                Links e referências
+              </p>
+
+              <ul className="mb-3 flex flex-col gap-1.5">
+                {links.map((l) => (
+                  <li key={l.id} className="group flex items-center gap-2 rounded-[8px] border border-line px-3 py-2">
+                    <ExternalLink size={12} className="shrink-0 text-faint" aria-hidden />
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 flex-1 truncate text-[13px] text-azure hover:underline"
+                    >
+                      {l.label}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeLink(l.id)}
+                      className="opacity-0 group-hover:opacity-100 text-faint hover:text-bad transition-all duration-150"
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                  placeholder="Título do link (opcional)"
+                  className="rounded-[8px] border border-line bg-surface px-3 py-2 text-[13px] text-text placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-azure/30"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={newLinkUrl}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addLink()}
+                    placeholder="https://…"
+                    className="flex-1 rounded-[8px] border border-line bg-surface px-3 py-2 text-[13px] text-text placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-azure/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={addLink}
+                    disabled={!newLinkUrl.trim() || linkBusy}
+                    className="grid size-9 place-items-center rounded-[8px] bg-azure text-white transition-opacity disabled:opacity-40"
+                  >
+                    <Plus size={15} aria-hidden />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   )
 }
@@ -597,10 +958,7 @@ function SkeletonCards() {
   return (
     <>
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="h-[88px] animate-pulse rounded-[12px] border border-line bg-surface"
-        />
+        <div key={i} className="h-[88px] animate-pulse rounded-[12px] border border-line bg-surface" />
       ))}
     </>
   )
