@@ -91,7 +91,7 @@ export function useGalaxy(playerXP: number): UseGalaxyReturn {
       if (!planet) throw new Error('Planeta não encontrado')
       if (playerXP < planet.xp_required) throw new Error('XP insuficiente')
 
-      const { error: insertErr } = await supabase.from('player_worlds').insert({
+      const { error: insertErr } = await (supabase.from('player_worlds') as any).insert({
         player_id: user.id,
         world_id: worldId,
         custom_name: trimmed,

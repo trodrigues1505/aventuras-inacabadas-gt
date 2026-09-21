@@ -86,7 +86,7 @@ export function GalaxyMap({
           </filter>
 
           {/* Névoas por região — radial gradients */}
-          {REGION_META.map((region, i) => {
+          {REGION_META.map((region, _i) => {
             const isLocked = playerXP < region.xp_required
             if (!isLocked) return null
             return (
@@ -129,7 +129,7 @@ export function GalaxyMap({
         <circle cx={CX} cy={CY} r={160} fill="url(#galaxy-core)" />
 
         {/* ── Anéis das regiões ───────────────────────────────── */}
-        {REGION_META.map((region, i) => {
+        {REGION_META.map((region, _i) => {
           const r = REGION_RADII[i]
           const isLocked = playerXP < region.xp_required
           return (
@@ -165,7 +165,7 @@ export function GalaxyMap({
         })}
 
         {/* ── Névoas das regiões bloqueadas ───────────────────── */}
-        {REGION_META.map((region, i) => {
+        {REGION_META.map((region, _i) => {
           const isLocked = playerXP < region.xp_required
           if (!isLocked) return null
 
