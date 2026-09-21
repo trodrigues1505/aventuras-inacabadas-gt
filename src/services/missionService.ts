@@ -68,10 +68,10 @@ export async function updateMission(
   update: MissionUpdate,
 ): Promise<Mission> {
   // Se prioridade mudou, recalcula recompensa
-  const patch: Record<string, unknown> = { ...update }
-  if (update.priority) {
-    patch.reward = CREDITS_BY_PRIORITY[update.priority]
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const patch: any = update.priority
+    ? { ...update, reward: CREDITS_BY_PRIORITY[update.priority] }
+    : update
   const { data, error } = await supabase
     .from('missions')
     .update(patch)
@@ -277,7 +277,7 @@ export async function listTags(userId: string): Promise<Tag[]> {
 export async function createTag(userId: string, name: string, color: string): Promise<Tag> {
   const { data, error } = await supabase
     .from('tags')
-    .insert({ user_id: userId, name, color })
+    .insert({ user_id: userId, name, color: color as import('../types/database').WorldAccent })
     .select()
     .single()
   if (error) throw error
@@ -296,7 +296,8 @@ export async function listMissionTags(missionId: string): Promise<string[]> {
 export async function setMissionTags(missionId: string, tagIds: string[]): Promise<void> {
   await supabase.from('mission_tags').delete().eq('mission_id', missionId)
   if (tagIds.length === 0) return
-  await supabase.from('mission_tags').insert(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('mission_tags') as any).insert(
     tagIds.map((tag_id) => ({ mission_id: missionId, tag_id })),
   )
 }
