@@ -32,7 +32,7 @@ export interface PlayerWorld {
   id: string
   player_id: string
   world_id: string
-  custom_name: string
+  title: string
   colonized_at: string
   missions_total: number
   missions_won: number

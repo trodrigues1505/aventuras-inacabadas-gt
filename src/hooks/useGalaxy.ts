@@ -94,7 +94,7 @@ export function useGalaxy(playerXP: number): UseGalaxyReturn {
       const { error: insertErr } = await (supabase.from('player_worlds') as any).insert({
         player_id: user.id,
         world_id: worldId,
-        custom_name: trimmed,
+        title: trimmed,
       })
 
       if (insertErr) throw insertErr
@@ -109,7 +109,7 @@ export function useGalaxy(playerXP: number): UseGalaxyReturn {
                   id: crypto.randomUUID(),
                   player_id: user.id,
                   world_id: worldId,
-                  custom_name: trimmed,
+                  title: trimmed,
                   colonized_at: new Date().toISOString(),
                   missions_total: 0,
                   missions_won: 0,

@@ -21,9 +21,9 @@ interface GalaxyScreenProps {
 export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
   const { worlds, loading, error, colonize, refreshWorlds } = useGalaxy(playerXP)
   const [selectedWorld, setSelectedWorld] = useState<WorldWithStatus | null>(null)
-  const [colonizeTarget, setColonizeTarget] = useState<WorldWithStatus | null>(null)
+  const [exploreTarget, setColonizeTarget] = useState<WorldWithStatus | null>(null)
 
-  const colonizedCount = worlds.filter(w => w.status === 'colonized').length
+  const exploredCount = worlds.filter(w => w.status === 'colonized').length
   const availableCount = worlds.filter(w => w.status === 'available').length
 
   const nextRegion = REGION_META.find(r => playerXP < r.xp_required)
@@ -74,7 +74,7 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
               Mapa da Galáxia
             </h1>
             <p className="text-[11px]" style={{ color: 'rgba(148,163,184,0.7)' }}>
-              {colonizedCount} colonizados · {availableCount} disponíveis
+              {exploredCount} explorados · {availableCount} disponíveis
             </p>
           </div>
         </div>
@@ -119,16 +119,16 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
             ? <PlanetPanel
                 world={selectedWorld}
                 onBack={() => setSelectedWorld(null)}
-                onColonize={() => setColonizeTarget(selectedWorld)}
+                onExplore={() => setColonizeTarget(selectedWorld)}
               />
             : <EmptyPanel playerXP={playerXP} worlds={worlds}/>
           }
         </div>
       </div>
 
-      {colonizeTarget && (
+      {exploreTarget && (
         <ColonizeModal
-          world={colonizeTarget}
+          world={exploreTarget}
           onClose={() => setColonizeTarget(null)}
           onColonize={colonize}
         />
@@ -138,15 +138,15 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
 }
 
 // ─── Painel do planeta selecionado ────────────────────────────
-function PlanetPanel({ world, onBack, onColonize }: {
+function PlanetPanel({ world, onBack, onExplore }: {
   world: WorldWithStatus
   onBack: () => void
-  onColonize: () => void
+  onExplore: () => void
 }) {
   const isColonized = world.status === 'colonized'
   const isAvailable = world.status === 'available'
   const isLocked = world.status === 'locked'
-  const displayName = isColonized ? (world.playerWorld?.custom_name ?? world.name) : world.name
+  const displayName = isColonized ? (world.playerWorld?.title ?? world.name) : world.name
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -179,7 +179,7 @@ function PlanetPanel({ world, onBack, onColonize }: {
           {isColonized && (
             <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold"
               style={{ background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', color: '#F59E0B', backdropFilter: 'blur(8px)' }}>
-              <CheckCircle2 size={9}/> Colonizado
+              <CheckCircle2 size={9}/> Explorado
             </span>
           )}
           {isAvailable && (
@@ -248,7 +248,7 @@ function PlanetPanel({ world, onBack, onColonize }: {
           </div>
         )}
 
-        {/* Stats se colonizado */}
+        {/* Stats se explorado */}
         {isColonized && (
           <div className="grid grid-cols-3 gap-2">
             {[
@@ -278,9 +278,9 @@ function PlanetPanel({ world, onBack, onColonize }: {
           </div>
         )}
 
-        {/* Botão colonizar */}
+        {/* Botão explorar */}
         {isAvailable && (
-          <button onClick={onColonize}
+          <button onClick={onExplore}
             className="mt-auto w-full rounded-xl py-3 text-sm font-bold tracking-wide transition-all"
             style={{
               background: `linear-gradient(135deg, ${world.color_primary}, ${world.color_primary}aa)`,
@@ -290,7 +290,7 @@ function PlanetPanel({ world, onBack, onColonize }: {
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 8px 32px ${world.color_glow}70` }}
             onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 4px 24px ${world.color_glow}50` }}
           >
-            🚀 Colonizar planeta
+            🚀 Explorar planeta
           </button>
         )}
       </div>
@@ -300,7 +300,7 @@ function PlanetPanel({ world, onBack, onColonize }: {
 
 // ─── Painel vazio ─────────────────────────────────────────────
 function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithStatus[] }) {
-  const colonized = worlds.filter(w => w.status === 'colonized')
+  const explored = worlds.filter(w => w.status === 'colonized')
 
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-4">
@@ -308,12 +308,12 @@ function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithS
         Selecione um planeta no mapa para ver detalhes e colonizá-lo.
       </p>
 
-      {colonized.length > 0 && (
+      {explored.length > 0 && (
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest"
-            style={{ color: 'rgba(148,163,184,0.3)' }}>Colonizados</p>
+            style={{ color: 'rgba(148,163,184,0.3)' }}>Explorados</p>
           <div className="flex flex-col gap-1.5">
-            {colonized.map(w => (
+            {explored.map(w => (
               <div key={w.id} className="flex items-center gap-2.5 rounded-lg p-2"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg"
@@ -324,7 +324,7 @@ function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithS
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-white">
-                    {w.playerWorld?.custom_name ?? w.name}
+                    {w.playerWorld?.title ?? w.name}
                   </p>
                   <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.5)' }}>{w.name}</p>
                 </div>

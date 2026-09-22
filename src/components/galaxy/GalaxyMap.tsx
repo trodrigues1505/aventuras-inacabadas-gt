@@ -197,7 +197,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           const hasSphere   = HAS_SPHERE.has(w.slug) && !isLocked
           const pr          = isSelected ? 30 : isHovered ? 27 : 24
           const displayName = isLocked ? '???' : isColonized
-            ? (w.playerWorld?.custom_name ?? w.name) : w.name
+            ? (w.playerWorld?.title ?? w.name) : w.name
 
           return (
             <g key={w.id}
@@ -232,7 +232,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                 </>
               )}
 
-              {/* Anel dourado — colonizado */}
+              {/* Anel dourado — explorado */}
               {isColonized && (
                 <circle cx={px} cy={py} r={pr + 5} fill="none"
                   stroke="#F59E0B" strokeWidth="1.5" opacity="0.65">
@@ -315,7 +315,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         {/* ── Legenda ────────────────────────────────────────── */}
         <g transform={`translate(18, ${VH - 42})`}>
           {[
-            { color: '#F59E0B', label: 'Colonizado' },
+            { color: '#F59E0B', label: 'Explorado' },
             { color: '#2DD4BF', label: 'Disponível' },
             { color: 'rgba(148,163,184,0.28)', label: 'Bloqueado' },
           ].map(({ color, label }, i) => (
