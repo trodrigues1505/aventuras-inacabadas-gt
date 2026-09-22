@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Globe2,
@@ -15,6 +15,7 @@ import {
   Radio,
 } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
+import { useGame } from '../hooks/GameProvider'
 import { BRAND } from '../data/brand'
 
 interface Item {
@@ -38,6 +39,16 @@ const ITEMS: Item[] = [
 
 const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/configuracoes']
 
+// Mapa de rota → slug do planeta decorativo na sidebar
+const ROUTE_PLANET: Record<string, string> = {
+  '/':              'thalassa',
+  '/planetas':      'varda',
+  '/galaxia':       'nyx',
+  '/missoes':       'zerion',
+  '/tripulacao':    'kestrel',
+  '/configuracoes': 'kestrel',
+}
+
 export function Avatar({ url, name, size = 32 }: { url?: string | null; name?: string | null; size?: number }) {
   if (url) {
     return (
@@ -46,14 +57,14 @@ export function Avatar({ url, name, size = 32 }: { url?: string | null; name?: s
         alt=""
         width={size}
         height={size}
-        className="shrink-0 rounded-full border border-line object-cover"
+        className="shrink-0 rounded-full border border-white/10 object-cover"
         style={{ width: size, height: size }}
       />
     )
   }
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-full bg-interactive font-semibold text-azure"
+      className="grid shrink-0 place-items-center rounded-full bg-hull-raised font-semibold text-hull-muted"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
       aria-hidden
     >
@@ -119,69 +130,68 @@ function GlobalHUD() {
   return (
     <div className="border-b border-line bg-surface px-4 py-2 md:px-6">
       <div className="flex flex-wrap items-center gap-1.5">
-
-        {/* XP */}
-        <ResourcePip
-          icon={Zap}
-          value={playerState.xp}
-          label="XP de Exploração"
-          iconClass="text-azure"
-          valueClass="text-azure"
-        />
-
-        {/* Créditos */}
-        <ResourcePip
-          icon={CreditCard}
-          value={playerState.currency}
-          label="Créditos"
-          iconClass="text-ember"
-          valueClass="text-ember"
-        />
-
-        {/* Divisor */}
+        <ResourcePip icon={Zap}        value={playerState.xp}           label="XP"           iconClass="text-azure" valueClass="text-azure" />
+        <ResourcePip icon={CreditCard} value={playerState.currency}     label="Créditos"     iconClass="text-ember" valueClass="text-ember" />
         <div className="mx-1 h-4 w-px bg-line" aria-hidden />
-
-        {/* Suprimentos */}
-        <ResourcePip
-          icon={Package}
-          value={playerState.suprimentos}
-          label="Suprimentos"
-          iconClass="text-good"
-          valueClass="text-muted"
-        />
-
-        {/* Dados */}
-        <ResourcePip
-          icon={Database}
-          value={playerState.dados}
-          label="Dados"
-          iconClass="text-azure"
-          valueClass="text-muted"
-        />
-
-        {/* Pulsos */}
-        <ResourcePip
-          icon={Radio}
-          value={playerState.pulsos}
-          label="Pulsos"
-          iconClass="text-ember"
-          valueClass="text-muted"
-        />
-
+        <ResourcePip icon={Package}    value={playerState.suprimentos}  label="Suprimentos"  iconClass="text-good"  valueClass="text-muted" />
+        <ResourcePip icon={Database}   value={playerState.dados}        label="Dados"        iconClass="text-azure" valueClass="text-muted" />
+        <ResourcePip icon={Radio}      value={playerState.pulsos}       label="Pulsos"       iconClass="text-ember" valueClass="text-muted" />
       </div>
+    </div>
+  )
+}
+
+/** Planeta decorativo no rodapé da sidebar — muda por rota */
+function SidebarPlanet({ slug }: { slug: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute bottom-0 left-0 w-full overflow-hidden"
+      aria-hidden
+      style={{ height: 220 }}
+    >
+      {/* glow difuso atrás do planeta */}
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2"
+        style={{
+          width: 280,
+          height: 280,
+          background: 'radial-gradient(circle, rgba(63,99,232,0.18) 0%, transparent 70%)',
+          filter: 'blur(24px)',
+        }}
+      />
+      <img
+        key={slug}
+        src={`assets/planets/${slug}-esferico.webp`}
+        alt=""
+        className="absolute -bottom-16 left-1/2 -translate-x-1/2 opacity-40 transition-opacity duration-500"
+        style={{ width: 260, height: 260, objectFit: 'cover' }}
+        loading="lazy"
+      />
     </div>
   )
 }
 
 export default function AppShell() {
   const { profile, isAdmin } = useAuth()
+  const { worlds } = useGame()
+  const location = useLocation()
   const items = ITEMS.filter((i) => !i.adminOnly || isAdmin)
   const mobile = items.filter((i) => MOBILE_ROUTES.includes(i.to))
 
+  // Planeta da sidebar: se o jogador tem mundos colonizados, usa o primeiro
+  // como decoração dinâmica; caso contrário usa o mapa de rota
+  const sidebarSlug =
+    worlds[0]?.planet_image ??
+    worlds[0]?.slug ??
+    ROUTE_PLANET[location.pathname] ??
+    'thalassa'
+
   return (
     <div className="min-h-dvh md:grid md:h-dvh md:grid-cols-[248px_1fr] md:overflow-hidden">
-      <aside className="hidden flex-col gap-8 bg-hull px-5 py-7 md:flex">
-        <div>
+      {/* ── Sidebar ─────────────────────────────────────────── */}
+      <aside className="relative hidden flex-col gap-8 overflow-hidden bg-hull px-5 py-7 md:flex">
+        {/* Logo + nome da nave */}
+        <div className="relative z-10">
           <p className="display text-[19px] leading-tight text-hull-text">
             {BRAND.appNameLines[0]}
             <br />
@@ -190,20 +200,26 @@ export default function AppShell() {
           <p className="mt-1.5 text-[12px] text-hull-faint">{BRAND.ship}</p>
         </div>
 
-        <nav className="flex flex-col gap-1">
+        {/* Navegação */}
+        <nav className="relative z-10 flex flex-col gap-1">
           {items.map((item) => (
             <SideLink key={item.to} item={item} />
           ))}
         </nav>
 
-        <div className="mt-auto flex items-center gap-3 rounded-[10px] px-2 py-1.5">
+        {/* Perfil */}
+        <div className="relative z-10 mt-auto flex items-center gap-3 rounded-[10px] px-2 py-1.5">
           <Avatar url={profile?.avatar_url} name={profile?.display_name} />
           <span className="truncate text-[13px] text-hull-muted">
             {profile?.display_name ?? 'Aventureiro'}
           </span>
         </div>
+
+        {/* Planeta decorativo — sempre no z-0, atrás de tudo */}
+        <SidebarPlanet slug={sidebarSlug} />
       </aside>
 
+      {/* ── Área de conteúdo ────────────────────────────────── */}
       <div className="flex flex-col pb-24 md:flex-1 md:overflow-hidden md:pb-0">
         <GlobalHUD />
         <div className="flex-1 md:overflow-auto">
@@ -211,6 +227,7 @@ export default function AppShell() {
         </div>
       </div>
 
+      {/* ── Nav mobile ──────────────────────────────────────── */}
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <ul className="grid grid-cols-5">
           {mobile.map(({ to, label, icon: Icon }) => (

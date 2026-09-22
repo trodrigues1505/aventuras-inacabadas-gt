@@ -198,32 +198,95 @@ export default function Missions() {
   const noWorlds = worlds.length === 0
 
   return (
-    <main className="flex h-[calc(100dvh-0px)] flex-col px-5 py-8 md:px-10 md:py-10">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <main className="flex h-[calc(100dvh-0px)] flex-col">
+      {/* ── Banner espacial ──────────────────────────────── */}
+      <div className="relative shrink-0 overflow-hidden" style={{ height: 120 }}>
+        {/* fundo estrelado usando galaxy-bg */}
+        <img
+          src="assets/galaxy-bg.webp"
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          style={{ opacity: 0.55 }}
+        />
+        {/* gradiente: esquerda e direita para misturar com a UI */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(to right, var(--color-ink) 0%, transparent 22%, transparent 65%, var(--color-ink) 100%),' +
+              'linear-gradient(to bottom, transparent 30%, var(--color-ink) 100%)',
+          }}
+          aria-hidden
+        />
+        {/* nave SVG — lado direito */}
+        <svg
+          viewBox="0 0 220 80"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden
+          className="absolute right-8 top-1/2 -translate-y-1/2 opacity-90"
+          style={{ width: 200, height: 72 }}
+        >
+          {/* fuselagem principal */}
+          <ellipse cx="110" cy="40" rx="72" ry="11" fill="#dce8ff" fillOpacity="0.12" />
+          <path d="M50 40 C70 28, 140 28, 170 40 C140 52, 70 52, 50 40Z" fill="#c8d8f8" fillOpacity="0.18" />
+          <path d="M60 40 C80 32, 138 32, 162 40 C138 48, 80 48, 60 40Z" fill="#e8f0ff" fillOpacity="0.22" />
+          {/* cúpula */}
+          <ellipse cx="110" cy="37" rx="28" ry="9" fill="#aac4f0" fillOpacity="0.30" />
+          <ellipse cx="110" cy="36" rx="18" ry="6" fill="#c8dcff" fillOpacity="0.35" />
+          {/* asa esquerda */}
+          <path d="M70 40 L40 52 L58 42Z" fill="#b0c8f0" fillOpacity="0.20" />
+          {/* asa direita */}
+          <path d="M150 40 L180 52 L162 42Z" fill="#b0c8f0" fillOpacity="0.20" />
+          {/* motor esquerdo */}
+          <ellipse cx="68" cy="46" rx="8" ry="3" fill="#88aaee" fillOpacity="0.25" />
+          {/* motor direito */}
+          <ellipse cx="152" cy="46" rx="8" ry="3" fill="#88aaee" fillOpacity="0.25" />
+          {/* propulsão — glow */}
+          <ellipse cx="50" cy="40" rx="4" ry="2" fill="#60a0ff" fillOpacity="0.45" />
+          <ellipse cx="170" cy="40" rx="4" ry="2" fill="#60a0ff" fillOpacity="0.45" />
+          {/* rastro de propulsão */}
+          <path d="M46 40 L18 38 L22 40 L18 42Z" fill="#4080ff" fillOpacity="0.25" />
+          <path d="M174 40 L202 38 L198 40 L202 42Z" fill="#4080ff" fillOpacity="0.25" />
+          {/* janelas */}
+          <circle cx="100" cy="37" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
+          <circle cx="110" cy="35" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
+          <circle cx="120" cy="37" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
+          {/* brilho de contorno */}
+          <path d="M60 40 C80 32, 138 32, 162 40" stroke="#aaccff" strokeWidth="0.8" strokeOpacity="0.40" fill="none" />
+        </svg>
+        {/* título e subtítulo sobre o banner */}
+        <div className="absolute bottom-0 left-0 px-5 pb-4 md:px-10">
           <h1 className="display text-[22px] text-text">Missões</h1>
-          <p className="mt-1 text-[13px] text-muted">Organize, acompanhe e conclua suas missões.</p>
+          <p className="text-[12px] text-muted">Organize, acompanhe e conclua suas missões.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {worlds.length > 0 && (
-            <Select
-              aria-label="Filtrar por planeta"
-              value={worldFilter}
-              onChange={(e) => setWorldFilter(e.target.value)}
-              className="w-auto min-w-[160px]"
-            >
-              <option value="">Todos os planetas</option>
-              {worlds.map((w) => (
-                <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
-              ))}
-            </Select>
-          )}
+      </div>
+
+      {/* ── Filtros e ação ───────────────────────────────── */}
+      <div className="mb-4 flex items-center gap-3 px-5 pt-4 md:px-10">
+        {worlds.length > 0 && (
+          <Select
+            aria-label="Filtrar por planeta"
+            value={worldFilter}
+            onChange={(e) => setWorldFilter(e.target.value)}
+            className="w-auto min-w-[160px]"
+          >
+            <option value="">Todos os planetas</option>
+            {worlds.map((w) => (
+              <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
+            ))}
+          </Select>
+        )}
+        <div className="ml-auto">
           <Button onClick={() => setComposing(true)} disabled={noWorlds}>
             <Plus size={15} aria-hidden />
             Nova missão
           </Button>
         </div>
       </div>
+
+      <div className="flex flex-1 flex-col overflow-hidden px-5 pb-4 md:px-10">
 
       {noWorlds && !loading ? (
         <div className="rounded-[16px] border border-line bg-surface">
@@ -290,6 +353,8 @@ export default function Missions() {
           </div>
         </div>
       )}
+
+      </div>{/* fim da área de kanban com px */}
 
       <MissionForm
         key={editing?.id ?? (composing ? 'new' : 'closed')}
