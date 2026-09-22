@@ -3,23 +3,23 @@ import { StarField } from './StarField'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 
-const VW = 1200
-const VH = 760
+const VW = 1000
+const VH = 700
 const CX = VW / 2
 const CY = VH / 2
 
-// Raios das órbitas elípticas (rx, ry) por região
-const ORBIT_RADII = [
-  { rx: 160, ry: 100 },  // Setor Âncora
-  { rx: 290, ry: 175 },  // Corredor Vivo
-  { rx: 410, ry: 250 },  // Fronteira Cinzenta
-  { rx: 510, ry: 310 },  // Limiar
+// Órbitas elípticas — rx horizontal, ry vertical
+const ORBITS = [
+  { rx: 150, ry: 95  },   // Setor Âncora
+  { rx: 265, ry: 168 },   // Corredor Vivo
+  { rx: 370, ry: 235 },   // Fronteira Cinzenta
+  { rx: 460, ry: 292 },   // Limiar
 ]
 
 function worldToSVG(coordX: number, coordY: number): [number, number] {
   return [
-    50 + coordX * (VW - 100),
-    50 + coordY * (VH - 100),
+    60 + coordX * (VW - 120),
+    60 + coordY * (VH - 120),
   ]
 }
 
@@ -40,33 +40,51 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         style={{ width: '100%', height: '100%' }}
-        preserveAspectRatio="xMidYMid slice"
+        preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          <filter id="glow-planet">
-            <feGaussianBlur stdDeviation="8" result="b"/>
+          <filter id="glow-lg">
+            <feGaussianBlur stdDeviation="10" result="b"/>
             <feComposite in="SourceGraphic" in2="b" operator="over"/>
           </filter>
-          <filter id="glow-soft">
+          <filter id="glow-sm">
             <feGaussianBlur stdDeviation="4" result="b"/>
             <feComposite in="SourceGraphic" in2="b" operator="over"/>
           </filter>
-          <filter id="blur-fog">
-            <feGaussianBlur stdDeviation="20"/>
-          </filter>
 
-          {/* Gradiente central — núcleo quente */}
-          <radialGradient id="core-hot" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.6"/>
-            <stop offset="30%" stopColor="#4c1d95" stopOpacity="0.4"/>
-            <stop offset="70%" stopColor="#1e1b4b" stopOpacity="0.15"/>
-            <stop offset="100%" stopColor="#050810" stopOpacity="0"/>
+          {/* Gradiente do núcleo central */}
+          <radialGradient id="core-grad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stopColor="#7c3aed" stopOpacity="0.7"/>
+            <stop offset="35%"  stopColor="#4c1d95" stopOpacity="0.5"/>
+            <stop offset="70%"  stopColor="#1e1b4b" stopOpacity="0.2"/>
+            <stop offset="100%" stopColor="#060a14" stopOpacity="0"/>
           </radialGradient>
 
-          {/* Clips circulares para imagens esféricas */}
+          {/* Gradiente do fundo estelar */}
+          <radialGradient id="space-grad" cx="50%" cy="45%" r="60%">
+            <stop offset="0%"   stopColor="#0f0c29" stopOpacity="1"/>
+            <stop offset="50%"  stopColor="#090818" stopOpacity="1"/>
+            <stop offset="100%" stopColor="#060a14" stopOpacity="1"/>
+          </radialGradient>
+
+          {/* Névoa lateral — simula profundidade da nebulosa */}
+          <radialGradient id="nebula-left" cx="0%" cy="50%" r="60%">
+            <stop offset="0%"   stopColor="#1e3a5f" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#060a14" stopOpacity="0"/>
+          </radialGradient>
+          <radialGradient id="nebula-right" cx="100%" cy="60%" r="50%">
+            <stop offset="0%"   stopColor="#3b1f6e" stopOpacity="0.25"/>
+            <stop offset="100%" stopColor="#060a14" stopOpacity="0"/>
+          </radialGradient>
+          <radialGradient id="nebula-top" cx="60%" cy="0%" r="50%">
+            <stop offset="0%"   stopColor="#1a2f5e" stopOpacity="0.2"/>
+            <stop offset="100%" stopColor="#060a14" stopOpacity="0"/>
+          </radialGradient>
+
+          {/* Clips para imagens esféricas */}
           {worlds.map(w => {
             const [px, py] = worldToSVG(w.coord_x, w.coord_y)
-            const pr = w.id === selectedWorldId ? 32 : hoveredId === w.id ? 29 : 26
+            const pr = w.id === selectedWorldId ? 30 : hoveredId === w.id ? 27 : 24
             return (
               <clipPath key={`clip-${w.id}`} id={`clip-${w.id}`}>
                 <circle cx={px} cy={py} r={pr}/>
@@ -74,84 +92,84 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
             )
           })}
 
-          {/* Névoa por região bloqueada */}
-          {REGION_META.map((region) => {
+          {/* Névoa das regiões bloqueadas — máscara suave */}
+          {REGION_META.map((region, i) => {
             if (playerXP >= region.xp_required) return null
+            const o = ORBITS[i]
+            const prev = i > 0 ? ORBITS[i - 1] : { rx: 0, ry: 0 }
             return (
-              <radialGradient key={`fg-${region.key}`} id={`fg-${region.key}`} cx="50%" cy="50%" r="50%">
-                <stop offset="55%" stopColor="#060a14" stopOpacity="0"/>
-                <stop offset="75%" stopColor="#060a14" stopOpacity="0.7"/>
-                <stop offset="100%" stopColor="#060a14" stopOpacity="0.95"/>
+              <radialGradient key={`fog-grad-${i}`} id={`fog-grad-${i}`} cx="50%" cy="50%" r="50%">
+                <stop offset={`${Math.round((prev.rx / (o.rx + 40)) * 90)}%`} stopColor="#060a14" stopOpacity="0"/>
+                <stop offset={`${Math.round((prev.rx / (o.rx + 40)) * 90 + 12)}%`} stopColor="#060a14" stopOpacity="0.65"/>
+                <stop offset="100%" stopColor="#060a14" stopOpacity="0.9"/>
               </radialGradient>
             )
           })}
         </defs>
 
-        {/* Fundo: imagem de nebulosa gerada */}
-        <image
-          href="/assets/galaxy-bg.png"
-          x="0" y="0" width={VW} height={VH}
-          preserveAspectRatio="xMidYMid slice"
-        />
+        {/* ── Fundo ──────────────────────────────────────────── */}
+        <rect width={VW} height={VH} fill="url(#space-grad)"/>
 
-        {/* Fallback de fundo caso a imagem não exista ainda */}
-        <rect width={VW} height={VH} fill="#060a14" opacity="0.3"/>
+        {/* Imagem de nebulosa gerada — quando existir */}
+        <image href="/assets/galaxy-bg.png" x="0" y="0" width={VW} height={VH}
+          preserveAspectRatio="xMidYMid slice" opacity="0.85"/>
+
+        {/* Névoas de cor para dar profundidade sem o PNG */}
+        <rect width={VW} height={VH} fill="url(#nebula-left)"/>
+        <rect width={VW} height={VH} fill="url(#nebula-right)"/>
+        <rect width={VW} height={VH} fill="url(#nebula-top)"/>
 
         {/* Estrelas */}
-        <StarField width={VW} height={VH} count={180}/>
+        <StarField width={VW} height={VH} count={160}/>
 
-        {/* Núcleo central quente */}
-        <ellipse cx={CX} cy={CY} rx={140} ry={90} fill="url(#core-hot)"/>
-        <ellipse cx={CX} cy={CY} rx={60} ry={38} fill="#7c3aed" opacity="0.15" filter="url(#glow-planet)"/>
-        <circle cx={CX} cy={CY} r={8} fill="#a78bfa" opacity="0.9" filter="url(#glow-planet)"/>
-
-        {/* Órbitas elípticas por região */}
+        {/* ── Órbitas elípticas ──────────────────────────────── */}
         {REGION_META.map((region, i) => {
           const isLocked = playerXP < region.xp_required
-          const o = ORBIT_RADII[i]
+          const o = ORBITS[i]
           return (
-            <ellipse
-              key={region.key}
-              cx={CX} cy={CY}
-              rx={o.rx} ry={o.ry}
+            <ellipse key={region.key}
+              cx={CX} cy={CY} rx={o.rx} ry={o.ry}
               fill="none"
-              stroke={isLocked ? 'rgba(255,255,255,0.05)' : 'rgba(45,212,191,0.15)'}
-              strokeWidth={isLocked ? 0.5 : 0.8}
-              strokeDasharray={isLocked ? '4 8' : '8 5'}
+              stroke={isLocked ? 'rgba(255,255,255,0.06)' : 'rgba(45,212,191,0.18)'}
+              strokeWidth={isLocked ? 0.6 : 1}
+              strokeDasharray={isLocked ? '3 9' : '6 5'}
             />
           )
         })}
 
-        {/* Névoa sobre regiões bloqueadas */}
+        {/* ── Névoa sobre regiões bloqueadas ─────────────────── */}
         {REGION_META.map((region, i) => {
           if (playerXP >= region.xp_required) return null
-          const o = ORBIT_RADII[i]
-          const prev = i > 0 ? ORBIT_RADII[i-1] : { rx: 0, ry: 0 }
+          const o = ORBITS[i]
+          const prev = i > 0 ? ORBITS[i - 1] : { rx: 0, ry: 0 }
+
           return (
-            <g key={`fog-${region.key}`}>
+            <g key={`fog-${i}`}>
               <defs>
+                {/* Máscara em forma de anel elíptico */}
                 <mask id={`fog-mask-${i}`}>
-                  <ellipse cx={CX} cy={CY} rx={o.rx + 60} ry={o.ry + 40} fill="white"/>
-                  {i > 0 && <ellipse cx={CX} cy={CY} rx={prev.rx - 10} ry={prev.ry - 10} fill="black"/>}
+                  <ellipse cx={CX} cy={CY} rx={o.rx + 55} ry={o.ry + 40} fill="white"/>
+                  {i > 0 && (
+                    <ellipse cx={CX} cy={CY} rx={prev.rx - 5} ry={prev.ry - 5} fill="black"/>
+                  )}
                 </mask>
               </defs>
-              <rect
-                x={CX - o.rx - 70} y={CY - o.ry - 50}
-                width={(o.rx + 70) * 2} height={(o.ry + 50) * 2}
+
+              {/* Névoa suave — só opacidade moderada, não sólida */}
+              <ellipse cx={CX} cy={CY} rx={o.rx + 55} ry={o.ry + 40}
                 fill="#060a14"
                 mask={`url(#fog-mask-${i})`}
-                opacity="0.82"
+                opacity="0.72"
               >
-                <animate attributeName="opacity" values="0.78;0.88;0.78" dur="8s" repeatCount="indefinite"/>
-              </rect>
+                <animate attributeName="opacity" values="0.65;0.78;0.65" dur="7s" repeatCount="indefinite"/>
+              </ellipse>
+
               {/* Label da região bloqueada */}
               {i > 0 && (
-                <text
-                  x={CX}
-                  y={CY - o.ry - 12}
+                <text x={CX} y={CY - o.ry - 10}
                   textAnchor="middle"
-                  fill="rgba(148,163,184,0.35)"
-                  fontSize="10"
+                  fill="rgba(148,163,184,0.3)"
+                  fontSize="9.5"
                   fontFamily="'Space Grotesk',sans-serif"
                   letterSpacing="2"
                 >
@@ -162,39 +180,42 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           )
         })}
 
-        {/* Planetas */}
+        {/* ── Núcleo central ─────────────────────────────────── */}
+        <ellipse cx={CX} cy={CY} rx={120} ry={76} fill="url(#core-grad)"/>
+        <ellipse cx={CX} cy={CY} rx={45}  ry={28} fill="#7c3aed" opacity="0.2" filter="url(#glow-lg)"/>
+        <circle  cx={CX} cy={CY} r={6}  fill="#c4b5fd" opacity="0.95" filter="url(#glow-sm)"/>
+
+        {/* ── Planetas ───────────────────────────────────────── */}
         {worlds.map(w => {
           const [px, py] = worldToSVG(w.coord_x, w.coord_y)
-          const isSelected = w.id === selectedWorldId
-          const isHovered = w.id === hoveredId
-          const isLocked = w.status === 'locked'
+          const isSelected  = w.id === selectedWorldId
+          const isHovered   = w.id === hoveredId
+          const isLocked    = w.status === 'locked'
           const isColonized = w.status === 'colonized'
           const isAvailable = w.status === 'available'
-          const hasSphere = HAS_SPHERE.has(w.slug) && !isLocked
-          const pr = isSelected ? 32 : isHovered ? 29 : 26
+          const hasSphere   = HAS_SPHERE.has(w.slug) && !isLocked
+          const pr          = isSelected ? 30 : isHovered ? 27 : 24
           const displayName = isLocked ? '???' : isColonized
             ? (w.playerWorld?.custom_name ?? w.name) : w.name
 
           return (
-            <g
-              key={w.id}
+            <g key={w.id}
               style={{ cursor: isLocked ? 'not-allowed' : 'pointer' }}
               onClick={() => !isLocked && onSelectWorld(w)}
               onMouseEnter={() => !isLocked && setHoveredId(w.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              {/* Halo de atmosfera */}
+              {/* Atmosfera / halo */}
               {!isLocked && (
-                <circle
-                  cx={px} cy={py}
-                  r={pr + (isSelected ? 18 : isHovered ? 14 : 10)}
+                <circle cx={px} cy={py}
+                  r={pr + (isSelected ? 16 : isHovered ? 12 : 8)}
                   fill={w.color_glow}
-                  opacity={isSelected ? 0.35 : isHovered ? 0.25 : 0.15}
-                  filter="url(#glow-planet)"
+                  opacity={isSelected ? 0.3 : isHovered ? 0.2 : 0.12}
+                  filter="url(#glow-lg)"
                 >
                   {isAvailable && (
                     <animate attributeName="opacity"
-                      values="0.12;0.22;0.12" dur="3s" repeatCount="indefinite"/>
+                      values="0.1;0.2;0.1" dur="2.8s" repeatCount="indefinite"/>
                   )}
                 </circle>
               )}
@@ -202,18 +223,18 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
               {/* Anel de seleção */}
               {isSelected && (
                 <>
-                  <circle cx={px} cy={py} r={pr + 6} fill="none"
-                    stroke={w.color_primary} strokeWidth="1.5" opacity="0.8"/>
-                  <circle cx={px} cy={py} r={pr + 12} fill="none"
+                  <circle cx={px} cy={py} r={pr + 5} fill="none"
+                    stroke={w.color_primary} strokeWidth="1.5" opacity="0.75"/>
+                  <circle cx={px} cy={py} r={pr + 11} fill="none"
                     stroke={w.color_primary} strokeWidth="0.5" opacity="0.3"
-                    strokeDasharray="4 3"/>
+                    strokeDasharray="3 4"/>
                 </>
               )}
 
               {/* Anel dourado — colonizado */}
               {isColonized && (
                 <circle cx={px} cy={py} r={pr + 5} fill="none"
-                  stroke="#F59E0B" strokeWidth="1.5" opacity="0.7">
+                  stroke="#F59E0B" strokeWidth="1.5" opacity="0.65">
                   <animateTransform attributeName="transform" type="rotate"
                     from={`0 ${px} ${py}`} to={`360 ${px} ${py}`}
                     dur="18s" repeatCount="indefinite"/>
@@ -223,9 +244,6 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
               {/* Corpo do planeta */}
               {hasSphere ? (
                 <>
-                  {/* Sombra sob o planeta */}
-                  <ellipse cx={px} cy={py + pr + 4} rx={pr * 0.7} ry={pr * 0.2}
-                    fill="rgba(0,0,0,0.4)" filter="url(#blur-fog)"/>
                   <image
                     href={`/assets/planets/${w.slug}-esferico.png`}
                     x={px - pr} y={py - pr}
@@ -233,35 +251,29 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                     clipPath={`url(#clip-${w.id})`}
                     preserveAspectRatio="xMidYMid slice"
                   />
-                  {/* Brilho de borda colorida */}
                   <circle cx={px} cy={py} r={pr} fill="none"
-                    stroke={w.color_primary} strokeWidth="1.2" opacity="0.4"/>
+                    stroke={w.color_primary} strokeWidth="1" opacity="0.35"/>
                 </>
               ) : (
-                <>
-                  <circle cx={px} cy={py} r={pr}
-                    fill={isLocked ? '#0d1b2a' : w.color_primary}
-                    opacity={isLocked ? 0.2 : 0.9}
-                    filter={isLocked ? undefined : 'url(#glow-soft)'}
-                  />
-                  {isAvailable && (
-                    <circle cx={px} cy={py} r={pr * 0.4}
-                      fill="white" opacity="0.15"/>
-                  )}
-                </>
+                <circle cx={px} cy={py} r={pr}
+                  fill={isLocked ? '#0d1420' : w.color_primary}
+                  opacity={isLocked ? 0.18 : 0.85}
+                  filter={isLocked ? undefined : 'url(#glow-sm)'}
+                />
               )}
 
-              {/* Cadeado em planetas bloqueados */}
+              {/* Ícone de cadeado */}
               {isLocked && (
-                <text x={px} y={py + 5} textAnchor="middle"
-                  fill="rgba(148,163,184,0.3)" fontSize="16">🔒</text>
+                <text x={px} y={py + 5}
+                  textAnchor="middle"
+                  fill="rgba(148,163,184,0.25)"
+                  fontSize="14">🔒</text>
               )}
 
               {/* Nome */}
-              <text
-                x={px} y={py + pr + 16}
+              <text x={px} y={py + pr + 15}
                 textAnchor="middle"
-                fill={isLocked ? 'rgba(148,163,184,0.25)' : isColonized ? '#f1f5f9' : '#94a3b8'}
+                fill={isLocked ? 'rgba(148,163,184,0.22)' : isColonized ? '#f1f5f9' : '#94a3b8'}
                 fontSize={isColonized ? '11' : '10'}
                 fontFamily="'Space Grotesk',sans-serif"
                 fontWeight={isColonized ? '600' : '400'}
@@ -271,26 +283,26 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
 
               {/* Dot de status */}
               {!isLocked && (
-                <circle cx={px} cy={py + pr + 23} r="3"
+                <circle cx={px} cy={py + pr + 22} r="2.8"
                   fill={isColonized ? '#F59E0B' : '#2DD4BF'}
                   opacity="0.9"
-                  filter="url(#glow-soft)"
+                  filter="url(#glow-sm)"
                 />
               )}
             </g>
           )
         })}
 
-        {/* Labels das regiões desbloqueadas */}
+        {/* ── Labels das regiões desbloqueadas ───────────────── */}
         {REGION_META.map((region, i) => {
           if (playerXP < region.xp_required) return null
-          const o = ORBIT_RADII[i]
+          const o = ORBITS[i]
           return (
             <text key={region.key}
-              x={CX - o.rx + 10}
-              y={CY - o.ry + 14}
-              fill="rgba(45,212,191,0.3)"
-              fontSize="9"
+              x={CX - o.rx + 8}
+              y={CY - o.ry + 13}
+              fill="rgba(45,212,191,0.28)"
+              fontSize="8.5"
               fontFamily="'Space Grotesk',sans-serif"
               letterSpacing="1.5"
             >
@@ -299,17 +311,19 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           )
         })}
 
-        {/* Legenda inferior esquerda */}
-        <g transform={`translate(20, ${VH - 50})`}>
+        {/* ── Legenda ────────────────────────────────────────── */}
+        <g transform={`translate(18, ${VH - 42})`}>
           {[
             { color: '#F59E0B', label: 'Colonizado' },
             { color: '#2DD4BF', label: 'Disponível' },
-            { color: 'rgba(148,163,184,0.3)', label: 'Bloqueado' },
+            { color: 'rgba(148,163,184,0.28)', label: 'Bloqueado' },
           ].map(({ color, label }, i) => (
             <g key={label} transform={`translate(${i * 110}, 0)`}>
-              <circle cx="5" cy="5" r="4" fill={color}/>
-              <text x="14" y="9" fill="rgba(148,163,184,0.6)"
-                fontSize="9" fontFamily="'Space Grotesk',sans-serif">
+              <circle cx="5" cy="5" r="3.5" fill={color}/>
+              <text x="13" y="9"
+                fill="rgba(148,163,184,0.55)"
+                fontSize="9"
+                fontFamily="'Space Grotesk',sans-serif">
                 {label}
               </text>
             </g>
