@@ -1,9 +1,9 @@
 // ============================================================
 // GalaxyMap — mapa SVG interativo
-// Planetas com imagem card (clip circular), névoa por região
+// SVG 100% responsivo via CSS — sem JS de resize
 // ============================================================
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { StarField } from './StarField'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
@@ -12,7 +12,6 @@ const VW = 800
 const VH = 800
 const CX = VW / 2
 const CY = VH / 2
-
 const REGION_RADII = [140, 240, 340, 380]
 
 function worldToSVG(coordX: number, coordY: number): [number, number] {
@@ -22,8 +21,7 @@ function worldToSVG(coordX: number, coordY: number): [number, number] {
   ]
 }
 
-// Slugs com imagem disponível
-const HAS_IMAGE = new Set(['varda','thalassa','zerion','kestrel','nyx'])
+const HAS_IMAGE = new Set(['varda', 'thalassa', 'zerion', 'kestrel', 'nyx'])
 
 interface GalaxyMapProps {
   worlds: WorldWithStatus[]
@@ -34,36 +32,22 @@ interface GalaxyMapProps {
 
 export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: GalaxyMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
-  const [svgSize, setSvgSize] = useState(640)
-  const svgRef = useRef<SVGSVGElement>(null)
-
-  useEffect(() => {
-    const update = () => {
-      const container = svgRef.current?.parentElement
-      if (!container) return
-      // Usar clientWidth apenas — clientHeight pode ser 0 se o pai não tem altura definida
-      const s = Math.min(container.clientWidth, 680)
-      setSvgSize(s)
-    }
-    update()
-    window.addEventListener('resize', update)
-    // ResizeObserver para capturar mudanças no container sem depender do window
-    const ro = new ResizeObserver(update)
-    if (svgRef.current?.parentElement) ro.observe(svgRef.current.parentElement)
-    return () => { window.removeEventListener('resize', update); ro.disconnect() }
-  }, [])
 
   return (
-    <div className="flex h-full w-full items-center justify-center">
+    // Container absoluto que preenche o pai — o SVG se adapta via CSS
+    <div className="absolute inset-0 flex items-center justify-center">
       <svg
-        ref={svgRef}
         viewBox={`0 0 ${VW} ${VH}`}
-        width={svgSize}
-        height={svgSize}
-        style={{ overflow: 'visible' }}
+        style={{
+          // Preenche o menor lado do container mantendo aspecto quadrado
+          width: '100%',
+          height: '100%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+        }}
+        preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          {/* Filtros de glow */}
           <filter id="glow-sm"><feGaussianBlur stdDeviation="3" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
           <filter id="glow-md"><feGaussianBlur stdDeviation="7" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
 
@@ -85,10 +69,9 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
             <stop offset="100%" stopColor="#050810" stopOpacity="0"/>
           </radialGradient>
 
-          {/* Névoas das regiões bloqueadas */}
+          {/* Névoas */}
           {REGION_META.map((region, i) => {
-            const isLocked = playerXP < region.xp_required
-            if (!isLocked) return null
+            if (playerXP >= region.xp_required) return null
             const innerR = i === 0 ? 0 : REGION_RADII[i - 1]
             const outerR = REGION_RADII[i] + 50
             return (
@@ -102,35 +85,29 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         </defs>
 
         {/* Fundo */}
-        <rect width={VW} height={VH} fill="transparent" />
+        <rect width={VW} height={VH} fill="#050810" />
 
         {/* Estrelas */}
         <StarField width={VW} height={VH} count={200} />
 
-        {/* Núcleo galáctico */}
+        {/* Núcleo */}
         <circle cx={CX} cy={CY} r={170} fill="url(#core-grad)" />
 
-        {/* Anéis das regiões */}
+        {/* Anéis */}
         {REGION_META.map((region, i) => {
           const r = REGION_RADII[i]
           const isLocked = playerXP < region.xp_required
           return (
             <g key={region.key}>
-              <circle
-                cx={CX} cy={CY} r={r}
-                fill="none"
+              <circle cx={CX} cy={CY} r={r} fill="none"
                 stroke={isLocked ? 'rgba(30,45,71,0.6)' : 'rgba(45,212,191,0.2)'}
                 strokeWidth={isLocked ? 0.5 : 0.8}
                 strokeDasharray={isLocked ? '3 7' : '6 4'}
               />
               {!isLocked && (
-                <text
-                  x={CX} y={CY - r + 13}
-                  textAnchor="middle"
-                  fill="rgba(45,212,191,0.35)"
-                  fontSize="8"
-                  fontFamily="'Space Grotesk',sans-serif"
-                  letterSpacing="2"
+                <text x={CX} y={CY - r + 13} textAnchor="middle"
+                  fill="rgba(45,212,191,0.35)" fontSize="8"
+                  fontFamily="'Space Grotesk',sans-serif" letterSpacing="2"
                 >
                   {region.label.toUpperCase()}
                 </text>
@@ -141,11 +118,9 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
 
         {/* Névoas das regiões bloqueadas */}
         {REGION_META.map((region, i) => {
-          const isLocked = playerXP < region.xp_required
-          if (!isLocked) return null
+          if (playerXP >= region.xp_required) return null
           const innerR = i === 0 ? 0 : REGION_RADII[i - 1]
           const outerR = REGION_RADII[i] + 50
-
           return (
             <g key={`fog-${region.key}`}>
               <defs>
@@ -154,22 +129,16 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                   {i > 0 && <circle cx={CX} cy={CY} r={Math.max(0, innerR - 8)} fill="black" />}
                 </mask>
               </defs>
-              <circle
-                cx={CX} cy={CY} r={outerR}
+              <circle cx={CX} cy={CY} r={outerR}
                 fill={`url(#fog-grad-${region.key})`}
                 mask={`url(#fog-mask-${region.key})`}
               >
                 <animate attributeName="opacity" values="0.9;0.97;0.9" dur="7s" repeatCount="indefinite" />
               </circle>
               {i > 0 && (
-                <text
-                  x={CX}
-                  y={CY - (innerR + (REGION_RADII[i] - innerR) * 0.45)}
-                  textAnchor="middle"
-                  fill="rgba(42,58,85,0.8)"
-                  fontSize="9.5"
-                  fontFamily="'Space Grotesk',sans-serif"
-                  letterSpacing="1"
+                <text x={CX} y={CY - (innerR + (REGION_RADII[i] - innerR) * 0.45)}
+                  textAnchor="middle" fill="rgba(42,58,85,0.8)" fontSize="9.5"
+                  fontFamily="'Space Grotesk',sans-serif" letterSpacing="1"
                 >
                   {region.label.toUpperCase()} — {region.xp_required.toLocaleString()} XP
                 </text>
@@ -187,27 +156,20 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           const isColonized = w.status === 'colonized'
           const isAvailable = w.status === 'available'
           const hasImg = HAS_IMAGE.has(w.slug) && !isLocked
-
-          // Raio do planeta
           const pr = isSelected ? 13 : isHovered ? 12 : 10
-
           const displayName = isLocked ? '???' : isColonized
-            ? (w.playerWorld?.custom_name ?? w.name)
-            : w.name
+            ? (w.playerWorld?.custom_name ?? w.name) : w.name
 
           return (
-            <g
-              key={w.id}
+            <g key={w.id}
               style={{ cursor: isLocked ? 'not-allowed' : 'pointer' }}
               onClick={() => !isLocked && onSelectWorld(w)}
               onMouseEnter={() => !isLocked && setHoveredId(w.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              {/* Halo de glow */}
+              {/* Halo */}
               {!isLocked && (
-                <circle
-                  cx={px} cy={py}
-                  r={pr + (isSelected ? 14 : 8)}
+                <circle cx={px} cy={py} r={pr + (isSelected ? 14 : 8)}
                   fill={w.color_glow}
                   opacity={isSelected ? 0.3 : isHovered ? 0.2 : 0.1}
                   filter="url(#glow-md)"
@@ -220,13 +182,8 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
 
               {/* Anel de seleção */}
               {isSelected && (
-                <circle
-                  cx={px} cy={py} r={pr + 5}
-                  fill="none"
-                  stroke={w.color_primary}
-                  strokeWidth="1"
-                  opacity="0.7"
-                />
+                <circle cx={px} cy={py} r={pr + 5} fill="none"
+                  stroke={w.color_primary} strokeWidth="1" opacity="0.7" />
               )}
 
               {/* Anel dourado — colonizado */}
@@ -237,22 +194,19 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                 </circle>
               )}
 
-              {/* Corpo do planeta — imagem ou cor */}
+              {/* Corpo */}
               {hasImg ? (
                 <>
                   <image
                     href={`/assets/planets/${w.slug}-card.png`}
-                    x={px - pr} y={py - pr}
-                    width={pr * 2} height={pr * 2}
+                    x={px - pr} y={py - pr} width={pr * 2} height={pr * 2}
                     clipPath={`url(#clip-planet-${w.id})`}
                     preserveAspectRatio="xMidYMid slice"
                   />
-                  {/* Borda colorida sobre a imagem */}
                   <circle cx={px} cy={py} r={pr} fill="none" stroke={w.color_primary} strokeWidth="1" opacity="0.5" />
                 </>
               ) : (
-                <circle
-                  cx={px} cy={py} r={pr}
+                <circle cx={px} cy={py} r={pr}
                   fill={isLocked ? '#1a2740' : w.color_primary}
                   opacity={isLocked ? 0.25 : 1}
                   filter={isLocked ? undefined : 'url(#glow-sm)'}
@@ -264,9 +218,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
               )}
 
               {/* Label */}
-              <text
-                x={px} y={py + pr + 13}
-                textAnchor="middle"
+              <text x={px} y={py + pr + 14} textAnchor="middle"
                 fill={isLocked ? '#2a3a55' : isColonized ? '#e2e8f0' : '#94a3b8'}
                 fontSize={isColonized ? '9.5' : '8.5'}
                 fontFamily="'Space Grotesk',sans-serif"
@@ -276,14 +228,10 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                 {displayName}
               </text>
 
-              {/* Indicador de status abaixo do nome */}
+              {/* Dot de status */}
               {!isLocked && (
-                <circle
-                  cx={px} cy={py + pr + 20}
-                  r="2.5"
-                  fill={isColonized ? '#F59E0B' : '#2DD4BF'}
-                  opacity="0.8"
-                />
+                <circle cx={px} cy={py + pr + 21} r="2.5"
+                  fill={isColonized ? '#F59E0B' : '#2DD4BF'} opacity="0.8" />
               )}
             </g>
           )

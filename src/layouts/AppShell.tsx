@@ -116,7 +116,7 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="pb-24 md:flex md:h-dvh md:flex-col md:overflow-hidden md:pb-0">
+      <div className="pb-24 md:flex md:flex-1 md:flex-col md:overflow-hidden md:pb-0">
         <Outlet />
       </div>
 
