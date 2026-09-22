@@ -6,6 +6,13 @@ import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 import { ChevronLeft, Lock, Target, CheckCircle2 } from 'lucide-react'
 
+// Resolver slug para nome do arquivo de imagem
+// nyx no banco → nix nos banners antigos, nyx no esférico
+function imageSlug(slug: string, type: 'banner' | 'esferico'): string {
+  if (slug === 'nyx' && type === 'banner') return 'nix'
+  return slug
+}
+
 interface GalaxyScreenProps {
   playerXP: number
   playerLevel?: number
@@ -147,7 +154,7 @@ function PlanetPanel({ world, onBack, onColonize }: {
       {/* Banner */}
       <div className="relative h-44 shrink-0 overflow-hidden" style={{ background: '#0a1628' }}>
         <img
-          src={`/assets/planets/${world.slug}-banner.png`}
+          src={`assets/planets/${imageSlug(world.slug, 'banner')}-banner.png`}
           alt={world.name}
           className="h-full w-full object-cover"
           style={{ opacity: isLocked ? 0.3 : 1 }}
@@ -311,7 +318,7 @@ function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithS
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg"
                   style={{ background: `${w.color_primary}20` }}>
-                  <img src={`/assets/planets/${w.slug}-esferico.png`} alt={w.name}
+                  <img src={`assets/planets/${imageSlug(w.slug, 'esferico')}-esferico.png`} alt={w.name}
                     className="h-full w-full object-cover"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}/>
                 </div>

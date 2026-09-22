@@ -25,6 +25,7 @@ function worldToSVG(coordX: number, coordY: number): [number, number] {
 
 const HAS_SPHERE = new Set(['varda', 'thalassa', 'zerion', 'kestrel', 'nyx'])
 
+
 interface GalaxyMapProps {
   worlds: WorldWithStatus[]
   playerXP: number
@@ -111,7 +112,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         <rect width={VW} height={VH} fill="url(#space-grad)"/>
 
         {/* Imagem de nebulosa gerada — quando existir */}
-        <image href="/assets/galaxy-bg.png" x="0" y="0" width={VW} height={VH}
+        <image href="assets/galaxy-bg.png" x="0" y="0" width={VW} height={VH}
           preserveAspectRatio="xMidYMid slice" opacity="0.85"/>
 
         {/* Névoas de cor para dar profundidade sem o PNG */}
@@ -245,7 +246,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
               {hasSphere ? (
                 <>
                   <image
-                    href={`/assets/planets/${w.slug}-esferico.png`}
+                    href={`assets/planets/${w.slug}-esferico.png`}
                     x={px - pr} y={py - pr}
                     width={pr * 2} height={pr * 2}
                     clipPath={`url(#clip-${w.id})`}
