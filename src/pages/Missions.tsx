@@ -199,10 +199,11 @@ export default function Missions() {
 
   return (
     <main className="flex h-[calc(100dvh-0px)] flex-col">
-      {/* ── Header ──────────────────────────────────────── */}
-      <div className="relative shrink-0 overflow-hidden" style={{ height: 100 }}>
-        <img src="assets/galaxy-bg.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" style={{ opacity: 0.5 }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, var(--color-ink) 0%, transparent 30%, transparent 60%, var(--color-ink) 100%), linear-gradient(to bottom, transparent 20%, var(--color-ink) 100%)' }} aria-hidden />
+      {/* ── Header com cena espacial ────────────────────── */}
+      <div className="relative shrink-0 overflow-hidden" style={{ height: 110 }}>
+        <img src="assets/header-bg.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-center" style={{ opacity: 0.6 }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, var(--color-ink) 0%, transparent 25%, transparent 55%, transparent 100%), linear-gradient(to bottom, transparent 10%, var(--color-ink) 100%)' }} aria-hidden />
+        <img src="assets/nave.webp" alt="" aria-hidden className="absolute right-6 top-1/2 -translate-y-1/2 opacity-70 md:right-12" style={{ width: 180, height: 'auto' }} loading="lazy" />
         <div className="absolute bottom-0 left-0 px-5 pb-3 md:px-10">
           <h1 className="display text-[22px] text-text">Missões</h1>
           <p className="text-[12px] text-muted">Organize, acompanhe e conclua suas missões.</p>

@@ -117,6 +117,30 @@ function applyPlanetBonus(
   }
 }
 
+
+// ─── Atualizar contadores do planeta ──────────────────────────────
+
+async function incrementPlanetCounter(
+  worldId: string | null,
+  playerId: string,
+  field: 'missions_total' | 'missions_won',
+): Promise<void> {
+  if (!worldId) return
+  // Busca o registro atual
+  const { data } = await supabase
+    .from('player_worlds')
+    .select(field)
+    .eq('world_id', worldId)
+    .eq('player_id', playerId)
+    .maybeSingle()
+  if (!data) return
+  const current = ((data as Record<string, number>)[field] ?? 0)
+  await (supabase.from('player_worlds') as any)
+    .update({ [field]: current + 1 })
+    .eq('world_id', worldId)
+    .eq('player_id', playerId)
+}
+
 // ─── Missões ─────────────────────────────────────────────────────
 
 export async function listMissions(userId: string): Promise<Mission[]> {
@@ -141,6 +165,8 @@ export async function createMission(
     .select()
     .single()
   if (error) throw error
+  // Incrementar contador de missões do planeta
+  await incrementPlanetCounter(draft.world_id, userId, 'missions_total')
   return data as Mission
 }
 
@@ -277,6 +303,9 @@ export async function toggleMission(
   if (mission.recurrence) {
     await spawnNextRecurrence(mission)
   }
+
+  // Incrementar contador de missões concluídas do planeta
+  await incrementPlanetCounter(mission.world_id, state.user_id, 'missions_won')
 
   return {
     mission: missionResult.data as Mission,
