@@ -40,6 +40,83 @@ type MissionUpdate = Partial<MissionDraft> & { status?: MissionStatus }
 
 export type SubtaskDraft = { title: string }
 
+// ─── Bônus de planeta ─────────────────────────────────────────────
+
+/**
+ * Busca o trait_key do planeta fixo vinculado à missão.
+ * Retorna null se a missão não tiver world_id ou se a query falhar.
+ */
+async function fetchPlanetTraitKey(worldId: string | null): Promise<string | null> {
+  if (!worldId) return null
+  const { data, error } = await supabase
+    .from('worlds')
+    .select('trait_key')
+    .eq('id', worldId)
+    .maybeSingle()
+  if (error || !data) return null
+  return ((data as unknown) as { trait_key: string }).trait_key ?? null
+}
+
+type PlanetBonus = { xp: number; credits: number; note: string | null }
+
+/**
+ * Aplica o bônus passivo do planeta à missão sendo concluída.
+ * Os trait_keys correspondem aos 5 planetas do Setor Âncora definidos no GDD.
+ */
+function applyPlanetBonus(
+  traitKey: string | null,
+  mission: Mission,
+  hoje: string,
+  allMissions: Mission[],
+): PlanetBonus {
+  const none: PlanetBonus = { xp: 0, credits: 0, note: null }
+  if (!traitKey) return none
+
+  switch (traitKey) {
+    // Varda — Missões recorrentes +5 XP
+    case 'recurrent_bonus':
+      return mission.recurrence
+        ? { xp: 5, credits: 0, note: 'Varda: rotina reforçada +5 XP' }
+        : none
+
+    // Thalassa — Missões com estimated_minutes >= 120 +8 XP
+    case 'long_mission_bonus':
+      return (mission.estimated_minutes ?? 0) >= 120
+        ? { xp: 8, credits: 0, note: 'Thalassa: missão longa +8 XP' }
+        : none
+
+    // Zerion — Missões de prioridade high +6 XP
+    case 'emergency_bonus':
+      return mission.priority === 'high'
+        ? { xp: 6, credits: 0, note: 'Zerion: emergência respondida +6 XP' }
+        : none
+
+    // Kestrel — Concluir no prazo +5 créditos extras
+    case 'deadline_credits': {
+      const onTime = mission.due_date ? mission.due_date >= hoje : false
+      return onTime
+        ? { xp: 0, credits: 5, note: 'Kestrel: dentro do prazo +5 créditos' }
+        : none
+    }
+
+    // Nyx — Primeira missão concluída do dia +10 XP
+    case 'first_mission_bonus': {
+      const todayDone = allMissions.filter(
+        (m) =>
+          m.id !== mission.id &&
+          m.status === 'done' &&
+          m.completed_at?.slice(0, 10) === hoje,
+      )
+      return todayDone.length === 0
+        ? { xp: 10, credits: 0, note: 'Nyx: primeira missão do dia +10 XP' }
+        : none
+    }
+
+    default:
+      return none
+  }
+}
+
 // ─── Missões ─────────────────────────────────────────────────────
 
 export async function listMissions(userId: string): Promise<Mission[]> {
@@ -100,6 +177,7 @@ export type CompletionResult = {
   creditsGained: number
   leveledUpTo: number | null
   crewNote: string | null
+  planetNote: string | null
 }
 
 export async function toggleMission(
@@ -124,6 +202,7 @@ export async function toggleMission(
       creditsGained: 0,
       leveledUpTo: null,
       crewNote: null,
+      planetNote: null,
     }
   }
 
@@ -146,8 +225,12 @@ export async function toggleMission(
     allMissions,
   )
 
-  const xpGained = baseXp + onTimeXp + bonus.xp
-  const creditsGained = baseCredits + onTimeCredits + bonus.credits
+  // Bônus do planeta — busca trait_key do planeta fixo
+  const traitKey = await fetchPlanetTraitKey(mission.world_id)
+  const planetBonus = applyPlanetBonus(traitKey, mission, hoje, allMissions)
+
+  const xpGained = baseXp + onTimeXp + bonus.xp + planetBonus.xp
+  const creditsGained = baseCredits + onTimeCredits + bonus.credits + planetBonus.credits
 
   // Recursos gerados pelo tipo de missão
   const missionType: MissionType = (mission as Mission & { type?: MissionType }).type ?? 'operacao'
@@ -202,6 +285,7 @@ export async function toggleMission(
     creditsGained,
     leveledUpTo,
     crewNote: bonus.note,
+    planetNote: planetBonus.note,
   }
 }
 

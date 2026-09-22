@@ -127,6 +127,7 @@ export default function Missions() {
         putMission(result.mission)
         applyPlayerState(result.state)
         if (result.crewNote) toast('info', result.crewNote)
+        if (result.planetNote) toast('info', result.planetNote)
         if (result.leveledUpTo) {
           toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
         } else if (result.xpGained > 0) {

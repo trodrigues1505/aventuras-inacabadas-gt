@@ -8,6 +8,8 @@ import {
   TrendingUp,
   Shield,
   Settings,
+  Zap,
+  CreditCard,
 } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
 import { BRAND } from '../data/brand'
@@ -85,6 +87,90 @@ function SideLink({ item }: { item: Item }) {
   )
 }
 
+function ResourcePip({
+  icon,
+  value,
+  label,
+  colorClass,
+}: {
+  icon: string
+  value: number
+  label: string
+  colorClass: string
+}) {
+  return (
+    <div
+      title={label}
+      className="flex items-center gap-1.5 rounded-[7px] bg-hull-raised px-2.5 py-1 transition-colors duration-150 hover:bg-hull-active"
+    >
+      <span className="text-[13px] leading-none" aria-hidden>{icon}</span>
+      <span className={`tabular-nums text-[12px] font-medium leading-none ${colorClass}`}>
+        {value.toLocaleString('pt-BR')}
+      </span>
+      <span className="sr-only">{label}</span>
+    </div>
+  )
+}
+
+function GlobalHUD() {
+  const { playerState } = useAuth()
+  if (!playerState) return null
+
+  return (
+    <div className="border-b border-line bg-surface px-4 py-2 md:px-6">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* XP */}
+        <div
+          title="XP de Exploração"
+          className="flex items-center gap-1.5 rounded-[7px] bg-raised px-2.5 py-1"
+        >
+          <Zap size={12} className="text-azure" aria-hidden />
+          <span className="tabular-nums text-[12px] font-medium leading-none text-azure">
+            {playerState.xp.toLocaleString('pt-BR')}
+          </span>
+          <span className="text-[11px] leading-none text-faint">XP</span>
+          <span className="sr-only">XP de Exploração</span>
+        </div>
+
+        {/* Créditos */}
+        <div
+          title="Créditos"
+          className="flex items-center gap-1.5 rounded-[7px] bg-raised px-2.5 py-1"
+        >
+          <CreditCard size={12} className="text-ember" aria-hidden />
+          <span className="tabular-nums text-[12px] font-medium leading-none text-ember">
+            {playerState.currency.toLocaleString('pt-BR')}
+          </span>
+          <span className="sr-only">Créditos</span>
+        </div>
+
+        {/* Divisor */}
+        <div className="mx-0.5 h-4 w-px bg-line" aria-hidden />
+
+        {/* Recursos */}
+        <ResourcePip
+          icon="📦"
+          value={playerState.suprimentos}
+          label="Suprimentos"
+          colorClass="text-text"
+        />
+        <ResourcePip
+          icon="💾"
+          value={playerState.dados}
+          label="Dados"
+          colorClass="text-text"
+        />
+        <ResourcePip
+          icon="📡"
+          value={playerState.pulsos}
+          label="Pulsos"
+          colorClass="text-text"
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function AppShell() {
   const { profile, isAdmin } = useAuth()
   const items = ITEMS.filter((i) => !i.adminOnly || isAdmin)
@@ -116,8 +202,11 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <div className="pb-24 md:flex md:flex-1 md:flex-col md:overflow-hidden md:pb-0">
-        <Outlet />
+      <div className="flex flex-col pb-24 md:flex-1 md:overflow-hidden md:pb-0">
+        <GlobalHUD />
+        <div className="flex-1 md:overflow-auto">
+          <Outlet />
+        </div>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">

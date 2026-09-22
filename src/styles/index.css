@@ -29,6 +29,8 @@
      casco, o conteúdo é a janela. */
   --color-hull: #121a2c;
   --color-hull-raised: #1c2740;
+  --color-hull-active: #243050;
+  --color-hull-hover: #1a2440;
   --color-hull-text: #e7edf6;
   --color-hull-muted: #8c9ab5;
   --color-hull-faint: #5d6a85;

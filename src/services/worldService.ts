@@ -66,6 +66,20 @@ export type ExploredWorldEntry = {
   missions_won: number
 }
 
+/** Mapeia bioma para ícone representativo. */
+function biomeIcon(biome: string | null | undefined): string {
+  switch ((biome ?? '').toLowerCase()) {
+    case 'florestal':  return '🌿'
+    case 'oceânico':
+    case 'oceanico':   return '🌊'
+    case 'desértico':
+    case 'desertico':  return '🏜️'
+    case 'gelado':     return '❄️'
+    case 'baldio':     return '🌑'
+    default:           return '🪐'
+  }
+}
+
 /** Busca os mundos explorados pelo jogador (join player_worlds × worlds fixos). */
 export async function listExploredWorlds(userId: string): Promise<World[]> {
   // Busca player_worlds do jogador
@@ -84,16 +98,19 @@ export async function listExploredWorlds(userId: string): Promise<World[]> {
     .in('id', worldIds)
   if (wErr) throw wErr
 
-  // Adapta para o formato World esperado pelo GameProvider
-  // Usa o título do jogador como name e o slug como identificador
+  // Adapta para o formato World esperado pelo GameProvider.
+  // Usa o título do jogador como name para aparecer corretamente no seletor.
   return (worlds ?? []).map((w: Record<string, unknown>) => {
-    const playerWorld = pw.find((p: { world_id: string; title?: string; colonized_at?: string }) => p.world_id === w.id) as { world_id: string; title?: string; colonized_at?: string } | undefined
+    const playerWorld = pw.find(
+      (p: { world_id: string; title?: string; colonized_at?: string }) => p.world_id === w.id,
+    ) as { world_id: string; title?: string; colonized_at?: string } | undefined
+
     return {
       id: w.id as string,
       user_id: userId,
       name: (playerWorld?.title as string) ?? (w.name as string),
       description: w.lore_short as string | null,
-      icon: '🪐',
+      icon: biomeIcon(w.biome as string | null),
       accent: 'azure' as WorldAccent,
       slug: w.slug as string,
       planet_image: (w.slug as string) as PlanetImage,
