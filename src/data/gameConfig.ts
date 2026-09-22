@@ -24,9 +24,9 @@ export const XP_ON_TIME_BONUS = 5
 export const CREDITS_ON_TIME_BONUS = 5
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
-  low: 'Exploração',
-  mid: 'Operação',
-  high: 'Emergência',
+  low: 'Baixa',
+  mid: 'Média',
+  high: 'Alta',
 }
 
 export type MissionType = 'rotina' | 'operacao' | 'emergencia'

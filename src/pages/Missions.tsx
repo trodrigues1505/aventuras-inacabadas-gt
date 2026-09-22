@@ -43,13 +43,13 @@ import {
 import { ACCENT, CREDITS_BY_PRIORITY, PRIORITY_LABEL, XP_BY_PRIORITY } from '../data/gameConfig'
 import type { Mission, MissionLink, MissionStatus, MissionType, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
 
-type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string }
+type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string; sub: string; img: string }
 
 const COLUMNS: KanbanCol[] = [
-  { key: 'open',        label: 'Mapeadas',      color: 'text-faint',  dot: 'bg-faint'  },
-  { key: 'in_progress', label: 'Em Curso',       color: 'text-azure',  dot: 'bg-azure'  },
-  { key: 'review',      label: 'Para Confirmar', color: 'text-ember',  dot: 'bg-ember'  },
-  { key: 'done',        label: 'Arquivadas',     color: 'text-good',   dot: 'bg-good'   },
+  { key: 'open',        label: 'Mapeadas',      color: 'text-faint',  dot: 'bg-faint', sub: 'Missões identificadas e prontas para iniciar.', img: 'assets/kanban/kanban-header-mapeadas.webp' },
+  { key: 'in_progress', label: 'Em Curso',       color: 'text-azure',  dot: 'bg-azure', sub: 'Missões em andamento.',                         img: 'assets/kanban/kanban-header-em-curso.webp' },
+  { key: 'review',      label: 'Para Confirmar', color: 'text-ember',  dot: 'bg-ember', sub: 'Aguardando validação ou próximos passos.',       img: 'assets/kanban/kanban-header-para-confirmar.webp' },
+  { key: 'done',        label: 'Arquivadas',     color: 'text-good',   dot: 'bg-good',  sub: 'Missões concluídas ou canceladas.',              img: 'assets/kanban/kanban-header-arquivadas.webp' },
 ]
 
 const PRIORITY_TONE: Record<Priority, 'bad' | 'ember' | 'good'> = {
@@ -199,79 +199,20 @@ export default function Missions() {
 
   return (
     <main className="flex h-[calc(100dvh-0px)] flex-col">
-      {/* ── Banner espacial ──────────────────────────────── */}
-      <div className="relative shrink-0 overflow-hidden" style={{ height: 120 }}>
-        {/* fundo estrelado usando galaxy-bg */}
-        <img
-          src="assets/galaxy-bg.webp"
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full object-cover object-center"
-          style={{ opacity: 0.55 }}
-        />
-        {/* gradiente: esquerda e direita para misturar com a UI */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(to right, var(--color-ink) 0%, transparent 22%, transparent 65%, var(--color-ink) 100%),' +
-              'linear-gradient(to bottom, transparent 30%, var(--color-ink) 100%)',
-          }}
-          aria-hidden
-        />
-        {/* nave SVG — lado direito */}
-        <svg
-          viewBox="0 0 220 80"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden
-          className="absolute right-8 top-1/2 -translate-y-1/2 opacity-90"
-          style={{ width: 200, height: 72 }}
-        >
-          {/* fuselagem principal */}
-          <ellipse cx="110" cy="40" rx="72" ry="11" fill="#dce8ff" fillOpacity="0.12" />
-          <path d="M50 40 C70 28, 140 28, 170 40 C140 52, 70 52, 50 40Z" fill="#c8d8f8" fillOpacity="0.18" />
-          <path d="M60 40 C80 32, 138 32, 162 40 C138 48, 80 48, 60 40Z" fill="#e8f0ff" fillOpacity="0.22" />
-          {/* cúpula */}
-          <ellipse cx="110" cy="37" rx="28" ry="9" fill="#aac4f0" fillOpacity="0.30" />
-          <ellipse cx="110" cy="36" rx="18" ry="6" fill="#c8dcff" fillOpacity="0.35" />
-          {/* asa esquerda */}
-          <path d="M70 40 L40 52 L58 42Z" fill="#b0c8f0" fillOpacity="0.20" />
-          {/* asa direita */}
-          <path d="M150 40 L180 52 L162 42Z" fill="#b0c8f0" fillOpacity="0.20" />
-          {/* motor esquerdo */}
-          <ellipse cx="68" cy="46" rx="8" ry="3" fill="#88aaee" fillOpacity="0.25" />
-          {/* motor direito */}
-          <ellipse cx="152" cy="46" rx="8" ry="3" fill="#88aaee" fillOpacity="0.25" />
-          {/* propulsão — glow */}
-          <ellipse cx="50" cy="40" rx="4" ry="2" fill="#60a0ff" fillOpacity="0.45" />
-          <ellipse cx="170" cy="40" rx="4" ry="2" fill="#60a0ff" fillOpacity="0.45" />
-          {/* rastro de propulsão */}
-          <path d="M46 40 L18 38 L22 40 L18 42Z" fill="#4080ff" fillOpacity="0.25" />
-          <path d="M174 40 L202 38 L198 40 L202 42Z" fill="#4080ff" fillOpacity="0.25" />
-          {/* janelas */}
-          <circle cx="100" cy="37" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
-          <circle cx="110" cy="35" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
-          <circle cx="120" cy="37" r="2.5" fill="#e0f0ff" fillOpacity="0.60" />
-          {/* brilho de contorno */}
-          <path d="M60 40 C80 32, 138 32, 162 40" stroke="#aaccff" strokeWidth="0.8" strokeOpacity="0.40" fill="none" />
-        </svg>
-        {/* título e subtítulo sobre o banner */}
-        <div className="absolute bottom-0 left-0 px-5 pb-4 md:px-10">
+      {/* ── Header ──────────────────────────────────────── */}
+      <div className="relative shrink-0 overflow-hidden" style={{ height: 100 }}>
+        <img src="assets/galaxy-bg.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" style={{ opacity: 0.5 }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, var(--color-ink) 0%, transparent 30%, transparent 60%, var(--color-ink) 100%), linear-gradient(to bottom, transparent 20%, var(--color-ink) 100%)' }} aria-hidden />
+        <div className="absolute bottom-0 left-0 px-5 pb-3 md:px-10">
           <h1 className="display text-[22px] text-text">Missões</h1>
           <p className="text-[12px] text-muted">Organize, acompanhe e conclua suas missões.</p>
         </div>
       </div>
 
-      {/* ── Filtros e ação ───────────────────────────────── */}
+      {/* ── Filtros ──────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-3 px-5 pt-4 md:px-10">
         {worlds.length > 0 && (
-          <Select
-            aria-label="Filtrar por planeta"
-            value={worldFilter}
-            onChange={(e) => setWorldFilter(e.target.value)}
-            className="w-auto min-w-[160px]"
-          >
+          <Select aria-label="Filtrar por planeta" value={worldFilter} onChange={(e) => setWorldFilter(e.target.value)} className="w-auto min-w-[160px]">
             <option value="">Todos os planetas</option>
             {worlds.map((w) => (
               <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
@@ -288,6 +229,7 @@ export default function Missions() {
 
       <div className="flex flex-1 flex-col overflow-hidden px-5 pb-4 md:px-10">
 
+
       {noWorlds && !loading ? (
         <div className="rounded-[16px] border border-line bg-surface">
           <EmptyState
@@ -303,12 +245,23 @@ export default function Missions() {
               const cards = byStatus[col.key] ?? []
               return (
                 <div key={col.key} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
-                    <h2 className={`text-[13px] font-semibold ${col.color}`}>{col.label}</h2>
-                    <span className="ml-auto rounded-full bg-raised px-2 py-0.5 text-[11px] tabular-nums text-faint">
-                      {cards.length}
-                    </span>
+                  <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
+                    <div className="relative h-[72px] overflow-hidden">
+                      <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
+                      <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
+                            <h2 className="text-[13px] font-semibold text-white">{col.label}</h2>
+                          </div>
+                          <p className="text-[10px] text-white/60">{col.sub}</p>
+                        </div>
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
+                          {cards.length}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
@@ -739,9 +692,9 @@ function MissionForm({
                   value={draft.priority}
                   onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}
                 >
-                  <option value="low">Exploração</option>
-                  <option value="mid">Operação</option>
-                  <option value="high">Emergência</option>
+                  <option value="low">Baixa</option>
+                  <option value="mid">Média</option>
+                  <option value="high">Alta</option>
                 </Select>
               )}
             </Field>
