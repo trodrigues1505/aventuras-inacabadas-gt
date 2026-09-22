@@ -116,7 +116,7 @@ function CrewCard({
       {/* Retrato do personagem */}
       <div className={`relative h-[200px] overflow-hidden ${accent.soft}`}>
         <img
-          src={`assets/crew/${member.id}.png`}
+          src={`assets/crew/${member.id}.webp`}
           alt={member.name}
           className="h-full w-full object-contain object-bottom transition-transform duration-300 hover:scale-[1.03]"
           onError={(e) => {

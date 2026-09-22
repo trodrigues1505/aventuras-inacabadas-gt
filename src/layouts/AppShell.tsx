@@ -10,6 +10,9 @@ import {
   Settings,
   Zap,
   CreditCard,
+  Package,
+  Database,
+  Radio,
 } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
 import { BRAND } from '../data/brand'
@@ -35,7 +38,6 @@ const ITEMS: Item[] = [
 
 const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/configuracoes']
 
-// Exportado para uso em Dashboard, Settings, Admin e outras páginas
 export function Avatar({ url, name, size = 32 }: { url?: string | null; name?: string | null; size?: number }) {
   if (url) {
     return (
@@ -87,24 +89,22 @@ function SideLink({ item }: { item: Item }) {
   )
 }
 
-function ResourcePip({
-  icon,
-  value,
-  label,
-  colorClass,
-}: {
-  icon: string
+type ResourcePipProps = {
+  icon: React.ElementType
   value: number
   label: string
-  colorClass: string
-}) {
+  iconClass: string
+  valueClass: string
+}
+
+function ResourcePip({ icon: Icon, value, label, iconClass, valueClass }: ResourcePipProps) {
   return (
     <div
       title={label}
-      className="flex items-center gap-1.5 rounded-[7px] bg-hull-raised px-2.5 py-1 transition-colors duration-150 hover:bg-hull-active"
+      className="flex items-center gap-1.5 rounded-[7px] border border-line bg-raised px-2.5 py-1 transition-colors duration-150 hover:bg-interactive"
     >
-      <span className="text-[13px] leading-none" aria-hidden>{icon}</span>
-      <span className={`tabular-nums text-[12px] font-medium leading-none ${colorClass}`}>
+      <Icon size={12} className={iconClass} aria-hidden />
+      <span className={`tabular-nums text-[12px] font-medium leading-none ${valueClass}`}>
         {value.toLocaleString('pt-BR')}
       </span>
       <span className="sr-only">{label}</span>
@@ -119,53 +119,55 @@ function GlobalHUD() {
   return (
     <div className="border-b border-line bg-surface px-4 py-2 md:px-6">
       <div className="flex flex-wrap items-center gap-1.5">
+
         {/* XP */}
-        <div
-          title="XP de Exploração"
-          className="flex items-center gap-1.5 rounded-[7px] bg-raised px-2.5 py-1"
-        >
-          <Zap size={12} className="text-azure" aria-hidden />
-          <span className="tabular-nums text-[12px] font-medium leading-none text-azure">
-            {playerState.xp.toLocaleString('pt-BR')}
-          </span>
-          <span className="text-[11px] leading-none text-faint">XP</span>
-          <span className="sr-only">XP de Exploração</span>
-        </div>
+        <ResourcePip
+          icon={Zap}
+          value={playerState.xp}
+          label="XP de Exploração"
+          iconClass="text-azure"
+          valueClass="text-azure"
+        />
 
         {/* Créditos */}
-        <div
-          title="Créditos"
-          className="flex items-center gap-1.5 rounded-[7px] bg-raised px-2.5 py-1"
-        >
-          <CreditCard size={12} className="text-ember" aria-hidden />
-          <span className="tabular-nums text-[12px] font-medium leading-none text-ember">
-            {playerState.currency.toLocaleString('pt-BR')}
-          </span>
-          <span className="sr-only">Créditos</span>
-        </div>
+        <ResourcePip
+          icon={CreditCard}
+          value={playerState.currency}
+          label="Créditos"
+          iconClass="text-ember"
+          valueClass="text-ember"
+        />
 
         {/* Divisor */}
-        <div className="mx-0.5 h-4 w-px bg-line" aria-hidden />
+        <div className="mx-1 h-4 w-px bg-line" aria-hidden />
 
-        {/* Recursos */}
+        {/* Suprimentos */}
         <ResourcePip
-          icon="📦"
+          icon={Package}
           value={playerState.suprimentos}
           label="Suprimentos"
-          colorClass="text-text"
+          iconClass="text-good"
+          valueClass="text-muted"
         />
+
+        {/* Dados */}
         <ResourcePip
-          icon="💾"
+          icon={Database}
           value={playerState.dados}
           label="Dados"
-          colorClass="text-text"
+          iconClass="text-azure"
+          valueClass="text-muted"
         />
+
+        {/* Pulsos */}
         <ResourcePip
-          icon="📡"
+          icon={Radio}
           value={playerState.pulsos}
           label="Pulsos"
-          colorClass="text-text"
+          iconClass="text-ember"
+          valueClass="text-muted"
         />
+
       </div>
     </div>
   )

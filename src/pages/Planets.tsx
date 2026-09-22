@@ -8,7 +8,7 @@ import type { WorldWithStatus } from '../types/galaxy'
 function planetBanner(slug: string): string {
   // nyx no banco → nix no arquivo de banner antigo
   const fileSlug = slug === 'nyx' ? 'nix' : slug
-  return `assets/planets/${fileSlug}-banner.png`
+  return `assets/planets/${fileSlug}-banner.webp`
 }
 
 export default function Planets() {
@@ -86,7 +86,7 @@ export default function Planets() {
                   <div className="flex items-center gap-3 px-4 py-3">
                     <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg"
                       style={{ background: `${world.color_primary}20` }}>
-                      <img src={`assets/planets/${world.slug}-esferico.png`} alt=""
+                      <img src={`assets/planets/${world.slug}-esferico.webp`} alt=""
                         className="h-full w-full object-cover"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}/>
                     </div>

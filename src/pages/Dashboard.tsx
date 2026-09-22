@@ -184,7 +184,7 @@ export default function Dashboard() {
             <div className="flex flex-col">
               <div className="relative h-[140px] overflow-hidden bg-raised">
                 <img
-                  src={`assets/planets/${spotlightWorld.planet_image ?? spotlightWorld.slug ?? spotlightWorld.id}-banner.png`}
+                  src={`assets/planets/${spotlightWorld.planet_image ?? spotlightWorld.slug ?? spotlightWorld.id}-banner.webp`}
                   alt={spotlightWorld.name}
                   className="h-full w-full object-cover"
                   onError={(e) => { ;(e.target as HTMLImageElement).style.display = 'none' }}
@@ -241,7 +241,7 @@ export default function Dashboard() {
             <div className="flex flex-col items-center px-5 py-6">
               <div className="relative mb-4 h-[140px] w-full overflow-hidden rounded-[12px] bg-raised">
                 <img
-                  src={`assets/crew/${crew.id}.png`}
+                  src={`assets/crew/${crew.id}.webp`}
                   alt={crew.name}
                   className="h-full w-full object-contain object-bottom"
                   onError={(e) => {

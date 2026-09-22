@@ -60,6 +60,18 @@ const RECURRENCE_LABEL: Record<Recurrence, string> = {
   daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal', custom: 'Personalizada',
 }
 
+const MISSION_TYPE_ICON: Record<MissionType, string> = {
+  rotina: '📦',
+  operacao: '💾',
+  emergencia: '📡',
+}
+
+const MISSION_TYPE_TOOLTIP: Record<MissionType, string> = {
+  rotina: 'Rotina · gera Suprimentos',
+  operacao: 'Operação · gera Dados',
+  emergencia: 'Emergência · gera Pulsos',
+}
+
 const BLANK: MissionDraft = {
   title: '', description: null, world_id: null,
   priority: 'mid', type: 'operacao', due_date: null, estimated_minutes: null,
@@ -354,6 +366,15 @@ function KanbanCard({
       )}
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {!isDone && mission.type && (
+          <span
+            title={MISSION_TYPE_TOOLTIP[mission.type]}
+            className="text-[13px] leading-none"
+            aria-label={MISSION_TYPE_TOOLTIP[mission.type]}
+          >
+            {MISSION_TYPE_ICON[mission.type]}
+          </span>
+        )}
         {!isDone && (
           <Badge tone={PRIORITY_TONE[mission.priority]}>
             {PRIORITY_LABEL[mission.priority]}
