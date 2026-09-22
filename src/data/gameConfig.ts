@@ -24,9 +24,30 @@ export const XP_ON_TIME_BONUS = 5
 export const CREDITS_ON_TIME_BONUS = 5
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
-  low: 'Baixa',
-  mid: 'Média',
-  high: 'Alta',
+  low: 'Exploração',
+  mid: 'Operação',
+  high: 'Emergência',
+}
+
+export type MissionType = 'rotina' | 'operacao' | 'emergencia'
+
+export const MISSION_TYPE_LABEL: Record<MissionType, string> = {
+  rotina: 'Rotina',
+  operacao: 'Operação',
+  emergencia: 'Emergência',
+}
+
+export const MISSION_TYPE_RESOURCE: Record<MissionType, 'suprimentos' | 'dados' | 'pulsos'> = {
+  rotina: 'suprimentos',
+  operacao: 'dados',
+  emergencia: 'pulsos',
+}
+
+// Recursos gerados: type × priority
+export const RESOURCE_BY_TYPE_PRIORITY: Record<MissionType, Record<Priority, number>> = {
+  rotina:     { low: 4, mid: 8, high: 14 },
+  operacao:   { low: 4, mid: 8, high: 14 },
+  emergencia: { low: 4, mid: 8, high: 14 },
 }
 
 export const ACCENT: Record<

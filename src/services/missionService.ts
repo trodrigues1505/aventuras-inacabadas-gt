@@ -3,6 +3,7 @@ import type {
   Mission,
   MissionLink,
   MissionStatus,
+  MissionType,
   PlayerState,
   Priority,
   Recurrence,
@@ -14,6 +15,8 @@ import {
   CREDITS_ON_TIME_BONUS,
   XP_BY_PRIORITY,
   XP_ON_TIME_BONUS,
+  RESOURCE_BY_TYPE_PRIORITY,
+  MISSION_TYPE_RESOURCE,
   getXpRequiredForLevel,
 } from '../data/gameConfig'
 import { applyBonus } from '../data/crew'
@@ -25,6 +28,7 @@ export type MissionDraft = {
   description: string | null
   world_id: string | null
   priority: Priority
+  type: import('../types/database').MissionType
   due_date: string | null
   estimated_minutes: number | null
   recurrence: Recurrence | null
@@ -56,7 +60,7 @@ export async function createMission(
   const reward = CREDITS_BY_PRIORITY[draft.priority]
   const { data, error } = await supabase
     .from('missions')
-    .insert({ ...draft, user_id: userId, status: 'open', reward })
+    .insert({ ...draft, user_id: userId, status: 'open', reward, type: draft.type ?? 'operacao' })
     .select()
     .single()
   if (error) throw error
@@ -145,6 +149,13 @@ export async function toggleMission(
   const xpGained = baseXp + onTimeXp + bonus.xp
   const creditsGained = baseCredits + onTimeCredits + bonus.credits
 
+  // Recursos gerados pelo tipo de missão
+  const missionType: MissionType = (mission as Mission & { type?: MissionType }).type ?? 'operacao'
+  const resourceKey = MISSION_TYPE_RESOURCE[missionType]
+  const baseResource = RESOURCE_BY_TYPE_PRIORITY[missionType][mission.priority]
+  const resourceBonus = onTime ? 2 : 0
+  const resourceGained = baseResource + resourceBonus
+
   // Level up
   let newXp = state.xp + xpGained
   let newLevel = state.level
@@ -163,9 +174,14 @@ export async function toggleMission(
       .eq('id', mission.id)
       .select()
       .single(),
-    supabase
-      .from('player_state')
-      .update({ xp: newXp, level: newLevel, currency: state.currency + creditsGained })
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('player_state') as any)
+      .update({
+        xp: newXp,
+        level: newLevel,
+        currency: state.currency + creditsGained,
+        [resourceKey]: ((state as unknown as Record<string, number>)[resourceKey] ?? 0) + resourceGained,
+      })
       .eq('user_id', state.user_id)
       .select()
       .single(),

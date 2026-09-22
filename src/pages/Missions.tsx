@@ -41,15 +41,15 @@ import {
   type MissionDraft,
 } from '../services/missionService'
 import { ACCENT, CREDITS_BY_PRIORITY, PRIORITY_LABEL, XP_BY_PRIORITY } from '../data/gameConfig'
-import type { Mission, MissionLink, MissionStatus, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
+import type { Mission, MissionLink, MissionStatus, MissionType, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
 
 type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string }
 
 const COLUMNS: KanbanCol[] = [
-  { key: 'open',        label: 'A fazer',     color: 'text-faint',  dot: 'bg-faint'  },
-  { key: 'in_progress', label: 'Em andamento', color: 'text-azure',  dot: 'bg-azure'  },
-  { key: 'review',      label: 'Em revisão',   color: 'text-ember',  dot: 'bg-ember'  },
-  { key: 'done',        label: 'Concluídas',   color: 'text-good',   dot: 'bg-good'   },
+  { key: 'open',        label: 'Mapeadas',      color: 'text-faint',  dot: 'bg-faint'  },
+  { key: 'in_progress', label: 'Em Curso',       color: 'text-azure',  dot: 'bg-azure'  },
+  { key: 'review',      label: 'Para Confirmar', color: 'text-ember',  dot: 'bg-ember'  },
+  { key: 'done',        label: 'Arquivadas',     color: 'text-good',   dot: 'bg-good'   },
 ]
 
 const PRIORITY_TONE: Record<Priority, 'bad' | 'ember' | 'good'> = {
@@ -62,7 +62,7 @@ const RECURRENCE_LABEL: Record<Recurrence, string> = {
 
 const BLANK: MissionDraft = {
   title: '', description: null, world_id: null,
-  priority: 'mid', due_date: null, estimated_minutes: null,
+  priority: 'mid', type: 'operacao', due_date: null, estimated_minutes: null,
   recurrence: null, recurrence_days: null, depends_on: null,
 }
 
@@ -442,6 +442,7 @@ function MissionForm({
       description: mission.description,
       world_id: mission.world_id,
       priority: mission.priority,
+      type: (mission as Mission & { type?: import('../types/database').MissionType }).type ?? 'operacao' as import('../types/database').MissionType,
       due_date: mission.due_date,
       estimated_minutes: mission.estimated_minutes,
       recurrence: mission.recurrence,
@@ -651,12 +652,29 @@ function MissionForm({
                   value={draft.priority}
                   onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}
                 >
-                  <option value="low">Baixa</option>
-                  <option value="mid">Média</option>
-                  <option value="high">Alta</option>
+                  <option value="low">Exploração</option>
+                  <option value="mid">Operação</option>
+                  <option value="high">Emergência</option>
                 </Select>
               )}
             </Field>
+          </div>
+
+          <Field label="Tipo de missão" hint="Define qual recurso esta missão gera ao ser concluída.">
+            {(id) => (
+              <Select
+                id={id}
+                value={(draft as MissionDraft & { type: MissionType }).type ?? 'operacao'}
+                onChange={(e) => setDraft({ ...draft, type: e.target.value as MissionType })}
+              >
+                <option value="rotina">Rotina → gera Suprimentos</option>
+                <option value="operacao">Operação → gera Dados</option>
+                <option value="emergencia">Emergência → gera Pulsos</option>
+              </Select>
+            )}
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3" style={{ display: 'none' }}>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

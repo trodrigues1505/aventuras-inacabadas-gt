@@ -15,6 +15,9 @@ export type PlayerState = {
   xp: number
   currency: number
   crew_id: string | null
+  suprimentos: number
+  dados: number
+  pulsos: number
   created_at: string
   updated_at: string
 }
@@ -37,6 +40,8 @@ export type World = {
 
 export type WorldAccent = 'azure' | 'good' | 'ember' | 'bad' | 'violet' | 'cyan'
 
+export type MissionType = 'rotina' | 'operacao' | 'emergencia'
+
 export type Priority = 'low' | 'mid' | 'high'
 
 export type MissionStatus = 'open' | 'in_progress' | 'review' | 'done'
@@ -57,6 +62,7 @@ export type Mission = {
   estimated_minutes: number | null
   recurrence: Recurrence | null
   recurrence_days: number | null
+  type: MissionType
   depends_on: string | null
   created_at: string
   updated_at: string
@@ -140,4 +146,17 @@ export type Database = {
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }
+}
+
+// ── Novos tipos para a Fase 2 (planetas fixos + exploração) ──
+
+export type ExploredWorld = {
+  id: string
+  player_id: string
+  world_id: string
+  title: string           // categoria pessoal do jogador (ex: "Escola")
+  colonized_at: string
+  missions_total: number
+  missions_won: number
+  explored_pct: number
 }

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from './AuthProvider'
-import { listWorlds } from '../services/worldService'
+import { listExploredWorlds } from '../services/worldService'
 import { listMissions } from '../services/missionService'
 import type { Mission, World } from '../types/database'
 
@@ -50,7 +50,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     let alive = true
     setLoading(true)
 
-    Promise.all([listWorlds(userId), listMissions(userId)])
+    Promise.all([listExploredWorlds(userId), listMissions(userId)])
       .then(([w, m]) => {
         if (!alive) return
         setWorlds(w)
