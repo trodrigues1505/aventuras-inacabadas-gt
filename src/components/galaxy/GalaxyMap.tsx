@@ -3,17 +3,17 @@ import { StarField } from './StarField'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 
-const VW = 1000
-const VH = 700
+const VW = 1200
+const VH = 760
 const CX = VW / 2
 const CY = VH / 2
 
 // Órbitas elípticas — rx horizontal, ry vertical
 const ORBITS = [
-  { rx: 150, ry: 95  },   // Setor Âncora
-  { rx: 265, ry: 168 },   // Corredor Vivo
-  { rx: 370, ry: 235 },   // Fronteira Cinzenta
-  { rx: 460, ry: 292 },   // Limiar
+  { rx: 375, ry: 230 },   // Setor Âncora — contém todos os 5 planetas
+  { rx: 490, ry: 300 },   // Corredor Vivo
+  { rx: 595, ry: 365 },   // Fronteira Cinzenta
+  { rx: 685, ry: 420 },   // Limiar — ultrapassa a tela propositalmente
 ]
 
 function worldToSVG(coordX: number, coordY: number): [number, number] {
