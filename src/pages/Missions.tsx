@@ -72,6 +72,30 @@ const MISSION_TYPE_TOOLTIP: Record<MissionType, string> = {
   emergencia: 'Emergência · gera Pulsos',
 }
 
+
+// Imagens de planetas para colunas custom (aleatória)
+const PLANET_IMAGES = [
+  'assets/kanban/kanban-header-mapeadas.webp',
+  'assets/kanban/kanban-header-em-curso.webp',
+  'assets/kanban/kanban-header-para-confirmar.webp',
+  'assets/kanban/kanban-header-arquivadas.webp',
+]
+
+// Cores para colunas custom (rotação)
+const CUSTOM_DOT_COLORS = ['bg-violet', 'bg-cyan', 'bg-azure', 'bg-ember', 'bg-good']
+// const CUSTOM_TEXT_COLORS reserved for future use
+
+type CustomColumn = { id: string; label: string; img: string; dotIdx: number }
+
+function loadCustomColumns(): CustomColumn[] {
+  try {
+    return JSON.parse(localStorage.getItem('ai-custom-cols') ?? '[]')
+  } catch { return [] }
+}
+function saveCustomColumns(cols: CustomColumn[]) {
+  localStorage.setItem('ai-custom-cols', JSON.stringify(cols))
+}
+
 const BLANK: MissionDraft = {
   title: '', description: null, world_id: null,
   priority: 'mid', type: 'operacao', due_date: null, estimated_minutes: null,
@@ -89,6 +113,9 @@ export default function Missions() {
   const [removing, setRemoving] = useState<Mission | null>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
+  const [customCols, setCustomCols] = useState<CustomColumn[]>(loadCustomColumns)
+  const [addingCol, setAddingCol] = useState(false)
+  const [newColName, setNewColName] = useState('')
 
   const byStatus = useMemo(() => {
     const filtered = worldFilter
@@ -193,6 +220,27 @@ export default function Missions() {
     } finally {
       setBusy(false)
     }
+  }
+
+  function addCustomColumn() {
+    if (!newColName.trim()) return
+    const col: CustomColumn = {
+      id: `custom-${Date.now()}`,
+      label: newColName.trim(),
+      img: PLANET_IMAGES[Math.floor(Math.random() * PLANET_IMAGES.length)],
+      dotIdx: customCols.length % CUSTOM_DOT_COLORS.length,
+    }
+    const next = [...customCols, col]
+    setCustomCols(next)
+    saveCustomColumns(next)
+    setNewColName('')
+    setAddingCol(false)
+  }
+
+  function removeCustomColumn(id: string) {
+    const next = customCols.filter((c) => c.id !== id)
+    setCustomCols(next)
+    saveCustomColumns(next)
   }
 
   const noWorlds = worlds.length === 0
@@ -304,6 +352,71 @@ export default function Missions() {
                 </div>
               )
             })}
+
+            {/* ── Colunas customizadas ──────────────────── */}
+            {customCols.map((cc) => (
+              <div key={cc.id} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
+                <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
+                  <div className="relative h-[72px] overflow-hidden">
+                    <img src={cc.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
+                    <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`size-2 rounded-full ${CUSTOM_DOT_COLORS[cc.dotIdx]}`} aria-hidden />
+                          <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
+                        </div>
+                        <p className="text-[10px] text-white/60">Coluna personalizada</p>
+                      </div>
+                      <button type="button" onClick={() => removeCustomColumn(cc.id)}
+                        className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-white/20 hover:text-white"
+                        aria-label="Remover coluna">
+                        <X size={10} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
+                  <div className="flex flex-1 items-center justify-center py-8">
+                    <p className="text-[12px] text-faint">Em breve</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* ── Botão adicionar coluna ────────────────── */}
+            <div className="flex w-[220px] shrink-0 flex-col">
+              {addingCol ? (
+                <div className="rounded-[12px] border border-line bg-surface p-3">
+                  <input
+                    type="text"
+                    placeholder="Nome da coluna"
+                    value={newColName}
+                    onChange={(e) => setNewColName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCustomColumn()}
+                    autoFocus
+                    className="mb-2 h-8 w-full rounded-[8px] border border-line bg-raised px-3 text-[13px] text-text outline-none focus:border-azure"
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={addCustomColumn}
+                      className="flex-1 rounded-[8px] bg-azure px-3 py-1.5 text-[12px] font-medium text-white hover:bg-azure/90">
+                      Criar
+                    </button>
+                    <button type="button" onClick={() => { setAddingCol(false); setNewColName('') }}
+                      className="rounded-[8px] px-3 py-1.5 text-[12px] text-faint hover:text-text">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setAddingCol(true)}
+                  className="flex h-[72px] w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-line text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure">
+                  <Plus size={14} aria-hidden />
+                  Nova coluna
+                </button>
+              )}
+            </div>
+
           </div>
         </div>
       )}

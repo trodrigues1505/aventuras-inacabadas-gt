@@ -186,6 +186,18 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         <ellipse cx={CX} cy={CY} rx={45}  ry={28} fill="#7c3aed" opacity="0.2" filter="url(#glow-lg)"/>
         <circle  cx={CX} cy={CY} r={6}  fill="#c4b5fd" opacity="0.95" filter="url(#glow-sm)"/>
 
+        {/* ── Nave do jogador (Andarilha) ───────────────────── */}
+        <g transform={`translate(${CX + 65}, ${CY - 18})`}>
+          <image href="assets/nave.webp" x={-28} y={-10} width={56} height={20}
+            opacity="0.85" filter="url(#glow-sm)"
+            style={{ transform: 'scaleX(-1)', transformOrigin: 'center' }}
+          />
+          {/* Glow engine */}
+          <circle cx={-26} cy={0} r={3} fill="#60a0ff" opacity="0.6" filter="url(#glow-sm)">
+            <animate attributeName="opacity" values="0.4;0.8;0.4" dur="1.8s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+
         {/* ── Planetas ───────────────────────────────────────── */}
         {worlds.map(w => {
           const [px, py] = worldToSVG(w.coord_x, w.coord_y)
