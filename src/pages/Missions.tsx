@@ -72,30 +72,6 @@ const MISSION_TYPE_TOOLTIP: Record<MissionType, string> = {
   emergencia: 'Emergência · gera Pulsos',
 }
 
-
-// Imagens de planetas para colunas custom (aleatória)
-const PLANET_IMAGES = [
-  'assets/kanban/kanban-header-mapeadas.webp',
-  'assets/kanban/kanban-header-em-curso.webp',
-  'assets/kanban/kanban-header-para-confirmar.webp',
-  'assets/kanban/kanban-header-arquivadas.webp',
-]
-
-// Cores para colunas custom (rotação)
-const CUSTOM_DOT_COLORS = ['bg-violet', 'bg-cyan', 'bg-azure', 'bg-ember', 'bg-good']
-// const CUSTOM_TEXT_COLORS reserved for future use
-
-type CustomColumn = { id: string; label: string; img: string; dotIdx: number }
-
-function loadCustomColumns(): CustomColumn[] {
-  try {
-    return JSON.parse(localStorage.getItem('ai-custom-cols') ?? '[]')
-  } catch { return [] }
-}
-function saveCustomColumns(cols: CustomColumn[]) {
-  localStorage.setItem('ai-custom-cols', JSON.stringify(cols))
-}
-
 const BLANK: MissionDraft = {
   title: '', description: null, world_id: null,
   priority: 'mid', type: 'operacao', due_date: null, estimated_minutes: null,
@@ -113,9 +89,6 @@ export default function Missions() {
   const [removing, setRemoving] = useState<Mission | null>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
-  const [customCols, setCustomCols] = useState<CustomColumn[]>(loadCustomColumns)
-  const [addingCol, setAddingCol] = useState(false)
-  const [newColName, setNewColName] = useState('')
 
   const byStatus = useMemo(() => {
     const filtered = worldFilter
@@ -222,44 +195,12 @@ export default function Missions() {
     }
   }
 
-  function addCustomColumn() {
-    if (!newColName.trim()) return
-    const col: CustomColumn = {
-      id: `custom-${Date.now()}`,
-      label: newColName.trim(),
-      img: PLANET_IMAGES[Math.floor(Math.random() * PLANET_IMAGES.length)],
-      dotIdx: customCols.length % CUSTOM_DOT_COLORS.length,
-    }
-    const next = [...customCols, col]
-    setCustomCols(next)
-    saveCustomColumns(next)
-    setNewColName('')
-    setAddingCol(false)
-  }
-
-  function removeCustomColumn(id: string) {
-    const next = customCols.filter((c) => c.id !== id)
-    setCustomCols(next)
-    saveCustomColumns(next)
-  }
-
   const noWorlds = worlds.length === 0
 
   return (
-    <main className="flex h-[calc(100dvh-0px)] flex-col">
-      {/* ── Header com cena espacial ────────────────────── */}
-      <div className="relative shrink-0 overflow-hidden" style={{ height: 110 }}>
-        <img src="assets/header-bg.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-center" style={{ opacity: 0.6 }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, var(--color-ink) 0%, transparent 25%, transparent 55%, transparent 100%), linear-gradient(to bottom, transparent 10%, var(--color-ink) 100%)' }} aria-hidden />
-        <img src="assets/nave.webp" alt="" aria-hidden className="absolute right-6 top-1/2 -translate-y-1/2 opacity-70 md:right-12" style={{ width: 180, height: 'auto' }} loading="lazy" />
-        <div className="absolute bottom-0 left-0 px-5 pb-3 md:px-10">
-          <h1 className="display text-[22px] text-text">Missões</h1>
-          <p className="text-[12px] text-muted">Organize, acompanhe e conclua suas missões.</p>
-        </div>
-      </div>
-
+    <main className="flex h-full flex-col">
       {/* ── Filtros ──────────────────────────────────────── */}
-      <div className="mb-4 flex items-center gap-3 px-5 pt-4 md:px-10">
+      <div className="mb-4 flex items-center gap-3 px-5 pt-4 md:px-8">
         {worlds.length > 0 && (
           <Select aria-label="Filtrar por planeta" value={worldFilter} onChange={(e) => setWorldFilter(e.target.value)} className="w-auto min-w-[160px]">
             <option value="">Todos os planetas</option>
@@ -276,7 +217,7 @@ export default function Missions() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden px-5 pb-4 md:px-10">
+      <div className="flex flex-1 flex-col overflow-hidden px-5 pb-4 md:px-8">
 
 
       {noWorlds && !loading ? (
@@ -293,7 +234,39 @@ export default function Missions() {
             {COLUMNS.map((col) => {
               const cards = byStatus[col.key] ?? []
               return (
-                <div key={col.key} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
+                <div
+                  key={col.key}
+                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const id = e.dataTransfer.getData('mission-id')
+                    if (!id) return
+                    const m = missions.find((x) => x.id === id)
+                    if (!m || m.status === col.key) return
+                    // Se droppou em "done", usa toggleMission para dar recompensa
+                    if (col.key === 'done') {
+                      if (!playerState) return
+                      setPending(id)
+                      try {
+                        const result = await toggleMission(m, playerState, missions)
+                        putMission(result.mission)
+                        applyPlayerState(result.state)
+                        if (result.crewNote) toast('info', result.crewNote)
+                        if (result.planetNote) toast('info', result.planetNote)
+                        if (result.leveledUpTo) toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
+                        else if (result.xpGained > 0) toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)
+                      } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
+                      finally { setPending(null) }
+                    } else {
+                      // Apenas muda status
+                      try {
+                        const updated = await updateMission(id, { status: col.key })
+                        putMission(updated)
+                      } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
+                    }
+                  }}
+                >
                   <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
                     <div className="relative h-[72px] overflow-hidden">
                       <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
@@ -337,7 +310,7 @@ export default function Missions() {
                       ))
                     )}
 
-                    {col.key === 'open' && !loading && (
+                    {col.key !== 'done' && !loading && (
                       <button
                         type="button"
                         onClick={() => setComposing(true)}
@@ -352,71 +325,6 @@ export default function Missions() {
                 </div>
               )
             })}
-
-            {/* ── Colunas customizadas ──────────────────── */}
-            {customCols.map((cc) => (
-              <div key={cc.id} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
-                <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
-                  <div className="relative h-[72px] overflow-hidden">
-                    <img src={cc.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
-                    <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`size-2 rounded-full ${CUSTOM_DOT_COLORS[cc.dotIdx]}`} aria-hidden />
-                          <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
-                        </div>
-                        <p className="text-[10px] text-white/60">Coluna personalizada</p>
-                      </div>
-                      <button type="button" onClick={() => removeCustomColumn(cc.id)}
-                        className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-white/20 hover:text-white"
-                        aria-label="Remover coluna">
-                        <X size={10} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
-                  <div className="flex flex-1 items-center justify-center py-8">
-                    <p className="text-[12px] text-faint">Em breve</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* ── Botão adicionar coluna ────────────────── */}
-            <div className="flex w-[220px] shrink-0 flex-col">
-              {addingCol ? (
-                <div className="rounded-[12px] border border-line bg-surface p-3">
-                  <input
-                    type="text"
-                    placeholder="Nome da coluna"
-                    value={newColName}
-                    onChange={(e) => setNewColName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addCustomColumn()}
-                    autoFocus
-                    className="mb-2 h-8 w-full rounded-[8px] border border-line bg-raised px-3 text-[13px] text-text outline-none focus:border-azure"
-                  />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={addCustomColumn}
-                      className="flex-1 rounded-[8px] bg-azure px-3 py-1.5 text-[12px] font-medium text-white hover:bg-azure/90">
-                      Criar
-                    </button>
-                    <button type="button" onClick={() => { setAddingCol(false); setNewColName('') }}
-                      className="rounded-[8px] px-3 py-1.5 text-[12px] text-faint hover:text-text">
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setAddingCol(true)}
-                  className="flex h-[72px] w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-line text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure">
-                  <Plus size={14} aria-hidden />
-                  Nova coluna
-                </button>
-              )}
-            </div>
-
           </div>
         </div>
       )}
@@ -470,10 +378,17 @@ function KanbanCard({
 
   return (
     <article
+      draggable={!isDone && !blocked}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('mission-id', mission.id)
+        e.dataTransfer.effectAllowed = 'move'
+        ;(e.currentTarget as HTMLElement).style.opacity = '0.4'
+      }}
+      onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = '' }}
       className={`group relative flex flex-col gap-2 rounded-[12px] border bg-surface p-3 transition-all duration-150 hover:shadow-sm ${
         isDone ? 'opacity-60 border-line' :
         blocked ? 'border-faint/40 bg-raised/60' : 'border-line'
-      } ${pending ? 'opacity-50' : ''}`}
+      } ${pending ? 'opacity-50' : ''} ${!isDone && !blocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       {blocked && (
         <div className="flex items-center gap-1.5 rounded-[6px] bg-ember/10 px-2 py-1">
@@ -484,18 +399,30 @@ function KanbanCard({
         </div>
       )}
 
-      <p className={`text-[13px] font-medium leading-snug ${
-        isDone ? 'text-faint line-through' : blocked ? 'text-muted' : 'text-text'
-      }`}>
-        {mission.title}
-      </p>
-
-      {world && accent && (
-        <div className="flex items-center gap-1.5">
-          <span className={`size-1.5 rounded-full ${accent.dot}`} aria-hidden />
-          <span className="text-[11px] text-muted">{world.name}</span>
+      <div className="flex gap-2.5">
+        {world?.planet_image && (
+          <img
+            src={`assets/planets/${world.planet_image}-esferico.webp`}
+            alt=""
+            className="mt-0.5 size-9 shrink-0 rounded-full object-cover"
+            loading="lazy"
+            aria-hidden
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className={`text-[13px] font-medium leading-snug ${
+            isDone ? 'text-faint line-through' : blocked ? 'text-muted' : 'text-text'
+          }`}>
+            {mission.title}
+          </p>
+          {world && accent && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className={`size-1.5 rounded-full ${accent.dot}`} aria-hidden />
+              <span className="text-[11px] text-muted">{world.name}</span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {!isDone && mission.type && (
