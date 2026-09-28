@@ -212,12 +212,13 @@ export async function toggleMission(
   state: PlayerState,
   allMissions: Mission[],
 ): Promise<CompletionResult> {
-  // Guard: só completa se não tiver sido concluída antes (status + completed_at)
-  const completing = mission.status !== 'done' && !mission.completed_at
+  // 3 casos possíveis:
+  // A) status === 'done'            → reabre (volta para open)
+  // B) status !== 'done' && !completed_at → arquiva COM bônus (primeira vez)
+  // C) status !== 'done' && completed_at  → arquiva SEM bônus (já ganhou antes)
 
-  if (!completing) {
-    // Reabre sem limpar completed_at — esse campo é histórico permanente
-    // e impede que o bônus seja aplicado novamente se concluir de novo
+  if (mission.status === 'done') {
+    // Caso A: reabre — preserva completed_at como histórico permanente
     const { data, error } = await supabase
       .from('missions')
       .update({ status: 'open' })
@@ -237,48 +238,49 @@ export async function toggleMission(
     }
   }
 
-  // Recompensa base
-  const baseXp = XP_BY_PRIORITY[mission.priority] ?? 10
-  const baseCredits = CREDITS_BY_PRIORITY[mission.priority] ?? 10
+  // Caso B ou C — vai arquivar, mas bônus só se nunca foi concluída antes
+  const applyRewards = !mission.completed_at
+
+  // Recompensa base — só aplica se for a primeira vez que vai para done
+  const hoje = new Date().toISOString().slice(0, 10)
+  const baseXp       = applyRewards ? (XP_BY_PRIORITY[mission.priority] ?? 10)      : 0
+  const baseCredits  = applyRewards ? (CREDITS_BY_PRIORITY[mission.priority] ?? 10) : 0
 
   // Bônus por prazo
-  const hoje = new Date().toISOString().slice(0, 10)
-  const onTime = mission.due_date ? mission.due_date >= hoje : false
-  const onTimeXp = onTime ? XP_ON_TIME_BONUS : 0
+  const onTime       = applyRewards && mission.due_date ? mission.due_date >= hoje : false
+  const onTimeXp     = onTime ? XP_ON_TIME_BONUS    : 0
   const onTimeCredits = onTime ? CREDITS_ON_TIME_BONUS : 0
 
-  // Bônus do tripulante
-  const bonus = applyBonus(
-    state.crew_id,
-    mission,
-    baseXp + onTimeXp,
-    baseCredits + onTimeCredits,
-    allMissions,
-  )
+  // Bônus do tripulante (só se applyRewards)
+  const bonus = applyRewards
+    ? applyBonus(state.crew_id, mission, baseXp + onTimeXp, baseCredits + onTimeCredits, allMissions)
+    : { xp: 0, credits: 0, note: null }
 
-  // Bônus do planeta — busca trait_key do planeta fixo
-  const traitKey = await fetchPlanetTraitKey(mission.world_id)
-  const planetBonus = applyPlanetBonus(traitKey, mission, hoje, allMissions)
+  // Bônus do planeta (só se applyRewards)
+  const traitKey    = applyRewards ? await fetchPlanetTraitKey(mission.world_id) : null
+  const planetBonus = applyRewards ? applyPlanetBonus(traitKey, mission, hoje, allMissions) : { xp: 0, credits: 0, note: null }
 
-  const xpGained = baseXp + onTimeXp + bonus.xp + planetBonus.xp
+  const xpGained      = baseXp + onTimeXp + bonus.xp + planetBonus.xp
   const creditsGained = baseCredits + onTimeCredits + bonus.credits + planetBonus.credits
 
-  // Recursos gerados pelo tipo de missão
+  // Recursos gerados (só se applyRewards)
   const missionType: MissionType = (mission as Mission & { type?: MissionType }).type ?? 'operacao'
-  const resourceKey = MISSION_TYPE_RESOURCE[missionType]
-  const baseResource = RESOURCE_BY_TYPE_PRIORITY[missionType][mission.priority]
-  const resourceBonus = onTime ? 2 : 0
+  const resourceKey    = MISSION_TYPE_RESOURCE[missionType]
+  const baseResource   = applyRewards ? RESOURCE_BY_TYPE_PRIORITY[missionType][mission.priority] : 0
+  const resourceBonus  = onTime ? 2 : 0
   const resourceGained = baseResource + resourceBonus
 
-  // Level up
+  // Level up (só se xpGained > 0)
   let newXp = state.xp + xpGained
   let newLevel = state.level
   let leveledUpTo: number | null = null
-  const required = getXpRequiredForLevel(newLevel)
-  if (newXp >= required) {
-    newXp -= required
-    newLevel += 1
-    leveledUpTo = newLevel
+  if (xpGained > 0) {
+    const required = getXpRequiredForLevel(newLevel)
+    if (newXp >= required) {
+      newXp -= required
+      newLevel += 1
+      leveledUpTo = newLevel
+    }
   }
 
   const [missionResult, stateResult] = await Promise.all([
