@@ -153,7 +153,7 @@ export default function Missions() {
         const result = await toggleMission(mission, playerState, missions)
         putMission(result.mission)
         applyPlayerState(result.state)
-        if (result.crewNote) toast('info', result.crewNote)
+        if (result.crewNote) toast('info', result.crewNote, result.crewId ?? undefined)
         if (result.planetNote) toast('info', result.planetNote)
         if (result.leveledUpTo) {
           toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
@@ -320,7 +320,7 @@ export default function Missions() {
                           result.mission = { ...result.mission, custom_column_id: null } as any
                         }
                         putMission(result.mission); applyPlayerState(result.state)
-                        if (result.crewNote) toast('info', result.crewNote)
+                        if (result.crewNote) toast('info', result.crewNote, result.crewId ?? undefined)
                         if (result.planetNote) toast('info', result.planetNote)
                         if (result.leveledUpTo) toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
                         else if (result.xpGained > 0) toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)

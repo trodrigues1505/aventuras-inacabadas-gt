@@ -203,6 +203,7 @@ export type CompletionResult = {
   creditsGained: number
   leveledUpTo: number | null
   crewNote: string | null
+  crewId: string | null    // para exibir portrait no toast
   planetNote: string | null
 }
 
@@ -215,9 +216,11 @@ export async function toggleMission(
   const completing = mission.status !== 'done' && !mission.completed_at
 
   if (!completing) {
+    // Reabre sem limpar completed_at — esse campo é histórico permanente
+    // e impede que o bônus seja aplicado novamente se concluir de novo
     const { data, error } = await supabase
       .from('missions')
-      .update({ status: 'open', completed_at: null })
+      .update({ status: 'open' })
       .eq('id', mission.id)
       .select()
       .single()
@@ -229,6 +232,7 @@ export async function toggleMission(
       creditsGained: 0,
       leveledUpTo: null,
       crewNote: null,
+      crewId: null,
       planetNote: null,
     }
   }
@@ -315,6 +319,7 @@ export async function toggleMission(
     creditsGained,
     leveledUpTo,
     crewNote: bonus.note,
+    crewId: bonus.note ? state.crew_id : null,  // só passa portrait se teve bônus
     planetNote: planetBonus.note,
   }
 }
