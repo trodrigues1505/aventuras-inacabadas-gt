@@ -171,12 +171,12 @@ function PageHeader({ pathname }: { pathname: string }) {
       <div className="relative z-10 flex h-full flex-col justify-between px-5 py-3 md:px-8">
         {/* Linha 1: HUD */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <HudPip emoji="⚡" value={playerState.xp}          label="XP"          accent="text-azure" />
-          <HudPip emoji="💳" value={playerState.currency}    label="Créditos"    accent="text-ember" />
+          <HudPip emoji="⚡" value={playerState.xp}          label="XP de Exploração — pontos acumulados no nível atual"          accent="text-azure" />
+          <HudPip emoji="💳" value={playerState.currency}    label="Créditos — moeda do jogo, gasta na loja"    accent="text-ember" />
           <span className="mx-0.5 h-4 w-px bg-white/10" aria-hidden />
-          <HudPip emoji="📦" value={playerState.suprimentos} label="Suprimentos" />
-          <HudPip emoji="💾" value={playerState.dados}       label="Dados"       />
-          <HudPip emoji="📡" value={playerState.pulsos}      label="Pulsos"      />
+          <HudPip emoji="📦" value={playerState.suprimentos} label="Suprimentos — gerados por missões de Rotina" />
+          <HudPip emoji="💾" value={playerState.dados}       label="Dados — gerados por missões de Operação"       />
+          <HudPip emoji="📡" value={playerState.pulsos}      label="Pulsos — gerados por missões de Emergência"      />
         </div>
 
         {/* Linha 2: título + progresso */}
@@ -185,11 +185,14 @@ function PageHeader({ pathname }: { pathname: string }) {
             <h1 className="display text-[20px] leading-tight text-white">{meta.title}</h1>
             <p className="text-[11px] text-white/55">{BRAND.ship} · nível {playerState.level}</p>
           </div>
-          {/* progresso XP compacto */}
-          <div className="mb-0.5 hidden w-40 sm:block">
+          {/* progresso XP — com tooltip explicativo */}
+          <div
+            className="mb-0.5 hidden w-44 sm:block"
+            title={`Nível ${playerState.level} · ${playerState.xp} XP de ${required} para subir ao nível ${playerState.level + 1}`}
+          >
             <div className="mb-1 flex items-baseline justify-between text-[10px]">
-              <span className="text-white/50">Próx. nível</span>
-              <span className="tabular-nums text-white/65">{pct}%</span>
+              <span className="text-white/50">Nível {playerState.level} → {playerState.level + 1}</span>
+              <span className="tabular-nums text-white/65">{playerState.xp}/{required} XP</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-azure transition-[width] duration-700"

@@ -3,6 +3,8 @@ import {
   CalendarDays,
   ChevronRight,
   Clock,
+  Maximize2,
+  Minimize2,
   Coins,
   ExternalLink,
   Link2,
@@ -97,6 +99,9 @@ export default function Missions() {
   const [customCols, setCustomCols] = useState<KanbanColumn[]>([])
   const [addingCol, setAddingCol] = useState(false)
   const [newColName, setNewColName] = useState('')
+  const [expandedCol, setExpandedCol] = useState<string | null>(null)
+  const [colOrder, setColOrder] = useState<string[]>(() => COLUMNS.map(c => c.key))
+  const dragColRef = useRef<string | null>(null)
 
   const byStatus = useMemo(() => {
     const filtered = worldFilter
@@ -223,7 +228,7 @@ export default function Missions() {
   // Carregar colunas custom do banco
   useEffect(() => {
     if (!session?.user.id) return
-    listKanbanColumns(session.user.id).then(setCustomCols).catch(() => {})
+    listKanbanColumns(session.user.id).then(setCustomCols).catch((err) => { console.warn('kanban_columns:', err?.message ?? err) })
   }, [session?.user.id])
 
   const noWorlds = worlds.length === 0
@@ -262,15 +267,48 @@ export default function Missions() {
       ) : (
         <div className="min-h-0 flex-1 overflow-x-auto">
           <div className="flex h-full gap-4" style={{ minWidth: 'max(100%, 900px)' }}>
-            {COLUMNS.map((col) => {
+            {colOrder.map((colKey) => {
+              const col = COLUMNS.find(c => c.key === colKey)!
               const cards = byStatus[col.key] ?? []
+              const isExpanded = expandedCol === col.key
+              const isCollapsed = expandedCol !== null && expandedCol !== col.key
               return (
                 <div
                   key={col.key}
-                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-                  onDrop={async (e) => {
+                  className={`flex flex-col transition-all duration-300 ${
+                    isExpanded ? 'flex-[3] min-w-[400px]' :
+                    isCollapsed ? 'w-14 min-w-14 shrink-0' :
+                    'flex-1 min-w-[220px]'
+                  }`}
+                  onDragOver={(e) => {
+                    // Se está arrastando coluna
+                    if (dragColRef.current && dragColRef.current !== col.key) {
+                      e.preventDefault()
+                      return
+                    }
+                    // Se está arrastando card
                     e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={async (e) => {
+                    // Reordenação de coluna
+                    if (dragColRef.current && dragColRef.current !== col.key) {
+                      e.preventDefault()
+                      const from = dragColRef.current
+                      dragColRef.current = null
+                      setColOrder(prev => {
+                        const next = [...prev]
+                        const fi = next.indexOf(from)
+                        const ti = next.indexOf(col.key)
+                        if (fi === -1 || ti === -1) return prev
+                        next.splice(fi, 1)
+                        next.splice(ti, 0, from)
+                        return next
+                      })
+                      return
+                    }
+                    e.preventDefault()
+                    // Drop de card
                     const id = e.dataTransfer.getData('mission-id')
                     if (!id) return
                     const m = missions.find((x) => x.id === id)
@@ -296,23 +334,66 @@ export default function Missions() {
                     }
                   }}
                 >
-                  <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
-                    <div className="relative h-[72px] overflow-hidden">
-                      <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
-                      <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
-                            <h2 className="text-[13px] font-semibold text-white">{col.label}</h2>
-                          </div>
-                          <p className="text-[10px] text-white/60">{col.sub}</p>
-                        </div>
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
-                          {cards.length}
+                  {/* Header da coluna — arrastável para reordenar */}
+                  <div
+                    className="mb-3 cursor-grab overflow-hidden rounded-[12px] border border-line active:cursor-grabbing"
+                    draggable
+                    onDragStart={(e) => {
+                      dragColRef.current = col.key
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('col-key', col.key)
+                    }}
+                    onDragEnd={() => { dragColRef.current = null }}
+                    title="Arraste para reordenar"
+                  >
+                    {isCollapsed ? (
+                      /* Coluna minimizada — só mostra cor + toggle */
+                      <div
+                        className="flex h-full flex-col items-center justify-between rounded-[12px] border border-line py-3"
+                        style={{ minHeight: 72 }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCol(null)}
+                          className="text-white/50 hover:text-white"
+                          title="Expandir"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                        <span className={`size-2 rounded-full ${col.dot}`} />
+                        <span className="text-white/30" style={{ writingMode: 'vertical-rl', fontSize: 10 }}>
+                          {col.label}
                         </span>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="relative h-[72px] overflow-hidden">
+                        <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
+                        <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
+                              <h2 className="text-[13px] font-semibold text-white">{col.label}</h2>
+                            </div>
+                            <p className="text-[10px] text-white/60">{col.sub}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
+                              {cards.length}
+                            </span>
+                            {/* Toggle maximizar */}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandedCol(isExpanded ? null : col.key) }}
+                              className="rounded-full bg-white/10 p-1 text-white/60 hover:bg-white/25 hover:text-white"
+                              title={isExpanded ? 'Restaurar' : 'Maximizar coluna'}
+                            >
+                              {isExpanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
