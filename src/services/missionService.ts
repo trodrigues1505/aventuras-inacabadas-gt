@@ -211,7 +211,8 @@ export async function toggleMission(
   state: PlayerState,
   allMissions: Mission[],
 ): Promise<CompletionResult> {
-  const completing = mission.status !== 'done'
+  // Guard: só completa se não tiver sido concluída antes (status + completed_at)
+  const completing = mission.status !== 'done' && !mission.completed_at
 
   if (!completing) {
     const { data, error } = await supabase

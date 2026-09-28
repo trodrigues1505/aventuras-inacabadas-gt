@@ -107,8 +107,10 @@ export default function Missions() {
     const filtered = worldFilter
       ? missions.filter((m) => m.world_id === worldFilter)
       : missions
+    // Excluir missões em colunas custom (têm custom_column_id) das colunas fixas
+    const noCustom = filtered.filter((m) => !(m as any).custom_column_id)
     return Object.fromEntries(
-      COLUMNS.map((col) => [col.key, filtered.filter((m) => m.status === col.key)]),
+      COLUMNS.map((col) => [col.key, noCustom.filter((m) => m.status === col.key)]),
     ) as Record<MissionStatus, Mission[]>
   }, [missions, worldFilter])
 
@@ -266,60 +268,58 @@ export default function Missions() {
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-x-auto">
-          <div className="flex h-full gap-4" style={{ minWidth: 'max(100%, 900px)' }}>
+          <div className="flex h-full gap-3" style={{ minWidth: 'max(100%, 900px)' }}>
+
+            {/* ── Colunas fixas ── */}
             {colOrder.map((colKey) => {
               const col = COLUMNS.find(c => c.key === colKey)!
               const cards = byStatus[col.key] ?? []
               const isExpanded = expandedCol === col.key
               const isCollapsed = expandedCol !== null && expandedCol !== col.key
+
               return (
                 <div
                   key={col.key}
-                  className={`flex flex-col transition-all duration-300 ${
-                    isExpanded ? 'flex-[3] min-w-[400px]' :
-                    isCollapsed ? 'w-14 min-w-14 shrink-0' :
-                    'flex-1 min-w-[220px]'
+                  className={`flex flex-col transition-all duration-300 ease-in-out ${
+                    isExpanded  ? 'flex-[3] min-w-[360px]' :
+                    isCollapsed ? 'w-12 min-w-[48px] shrink-0' :
+                                  'flex-1 min-w-[200px]'
                   }`}
                   onDragOver={(e) => {
-                    // Se está arrastando coluna
-                    if (dragColRef.current && dragColRef.current !== col.key) {
-                      e.preventDefault()
-                      return
-                    }
-                    // Se está arrastando card
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
+                    if (dragColRef.current && dragColRef.current !== col.key) { e.preventDefault(); return }
+                    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
                   }}
                   onDrop={async (e) => {
+                    e.preventDefault()
                     // Reordenação de coluna
                     if (dragColRef.current && dragColRef.current !== col.key) {
-                      e.preventDefault()
-                      const from = dragColRef.current
-                      dragColRef.current = null
+                      const from = dragColRef.current; dragColRef.current = null
                       setColOrder(prev => {
                         const next = [...prev]
-                        const fi = next.indexOf(from)
-                        const ti = next.indexOf(col.key)
+                        const fi = next.indexOf(from), ti = next.indexOf(col.key)
                         if (fi === -1 || ti === -1) return prev
-                        next.splice(fi, 1)
-                        next.splice(ti, 0, from)
+                        next.splice(fi, 1); next.splice(ti, 0, from)
                         return next
-                      })
-                      return
+                      }); return
                     }
-                    e.preventDefault()
                     // Drop de card
-                    const id = e.dataTransfer.getData('mission-id')
-                    if (!id) return
-                    const m = missions.find((x) => x.id === id)
-                    if (!m || m.status === col.key) return
+                    const id = e.dataTransfer.getData('mission-id'); if (!id) return
+                    const m = missions.find((x) => x.id === id); if (!m) return
+                    // Previne double-completion
+                    if (col.key === 'done' && m.status === 'done') return
+                    if (col.key === m.status && !(m as any).custom_column_id) return
                     if (col.key === 'done') {
                       if (!playerState) return
                       setPending(id)
                       try {
                         const result = await toggleMission(m, playerState, missions)
-                        putMission(result.mission)
-                        applyPlayerState(result.state)
+                        // Limpar custom_column_id se veio de coluna custom
+                        if ((m as any).custom_column_id) {
+                          const { supabase: sb } = await import('../lib/supabase')
+                          await (sb.from('missions') as any).update({ custom_column_id: null }).eq('id', id)
+                          result.mission = { ...result.mission, custom_column_id: null } as any
+                        }
+                        putMission(result.mission); applyPlayerState(result.state)
                         if (result.crewNote) toast('info', result.crewNote)
                         if (result.planetNote) toast('info', result.planetNote)
                         if (result.leveledUpTo) toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
@@ -329,65 +329,52 @@ export default function Missions() {
                     } else {
                       try {
                         const updated = await updateMission(id, { status: col.key })
-                        putMission(updated)
+                        // Limpar custom_column_id ao mover para coluna fixa
+                        if ((m as any).custom_column_id) {
+                          const { supabase: sb } = await import('../lib/supabase')
+                          await (sb.from('missions') as any).update({ custom_column_id: null }).eq('id', id)
+                        }
+                        putMission({ ...updated, custom_column_id: null } as any)
                       } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
                     }
                   }}
                 >
-                  {/* Header da coluna — arrastável para reordenar */}
+                  {/* Header — arrastável para reordenar */}
                   <div
                     className="mb-3 cursor-grab overflow-hidden rounded-[12px] border border-line active:cursor-grabbing"
                     draggable
-                    onDragStart={(e) => {
-                      dragColRef.current = col.key
-                      e.dataTransfer.effectAllowed = 'move'
-                      e.dataTransfer.setData('col-key', col.key)
-                    }}
+                    onDragStart={(e) => { dragColRef.current = col.key; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('col-key', col.key) }}
                     onDragEnd={() => { dragColRef.current = null }}
-                    title="Arraste para reordenar"
                   >
                     {isCollapsed ? (
-                      /* Coluna minimizada — só mostra cor + toggle */
-                      <div
-                        className="flex h-full flex-col items-center justify-between rounded-[12px] border border-line py-3"
-                        style={{ minHeight: 72 }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setExpandedCol(null)}
-                          className="text-white/50 hover:text-white"
-                          title="Expandir"
-                        >
-                          <ChevronRight size={14} />
+                      /* Coluna minimizada — aba vertical */
+                      <div className="flex h-full min-h-[72px] flex-col items-center justify-between rounded-[12px] border border-line/50 bg-raised/30 py-2.5">
+                        <button type="button" onClick={() => setExpandedCol(null)} className="text-faint hover:text-azure" title="Restaurar todas">
+                          <ChevronRight size={13} />
                         </button>
                         <span className={`size-2 rounded-full ${col.dot}`} />
-                        <span className="text-white/30" style={{ writingMode: 'vertical-rl', fontSize: 10 }}>
-                          {col.label}
+                        <span className="text-[9px] text-faint" style={{ writingMode: 'vertical-rl', letterSpacing: 1 }}>
+                          {col.label} · {cards.length}
                         </span>
                       </div>
                     ) : (
                       <div className="relative h-[72px] overflow-hidden">
                         <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
-                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)' }} />
                         <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className={`size-2 rounded-full ${col.dot}`} aria-hidden />
                               <h2 className="text-[13px] font-semibold text-white">{col.label}</h2>
                             </div>
-                            <p className="text-[10px] text-white/60">{col.sub}</p>
+                            <p className="text-[10px] text-white/55">{col.sub}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
-                              {cards.length}
-                            </span>
-                            {/* Toggle maximizar */}
-                            <button
-                              type="button"
+                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">{cards.length}</span>
+                            <button type="button"
                               onClick={(e) => { e.stopPropagation(); setExpandedCol(isExpanded ? null : col.key) }}
                               className="rounded-full bg-white/10 p-1 text-white/60 hover:bg-white/25 hover:text-white"
-                              title={isExpanded ? 'Restaurar' : 'Maximizar coluna'}
-                            >
+                              title={isExpanded ? 'Restaurar' : 'Maximizar'}>
                               {isExpanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
                             </button>
                           </div>
@@ -396,151 +383,157 @@ export default function Missions() {
                     )}
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
-                    {loading ? (
-                      <SkeletonCards />
-                    ) : cards.length === 0 ? (
-                      <div className="flex flex-1 items-center justify-center py-8">
-                        <p className="text-[12px] text-faint">Vazio</p>
-                      </div>
-                    ) : (
-                      cards.map((mission) => (
-                        <KanbanCard
-                          key={mission.id}
-                          mission={mission}
-                          world={worlds.find((w) => w.id === mission.world_id) ?? null}
-                          pending={pending === mission.id}
-                          isDone={col.key === 'done'}
-                          blocked={isBlocked(mission)}
-                          blockedBy={missions.find((m) => m.id === mission.depends_on) ?? null}
-                          onAdvance={() => advance(mission)}
-                          onReopen={() => reopen(mission)}
-                          onEdit={() => setEditing(mission)}
-                        />
-                      ))
-                    )}
-
-                    {col.key === 'open' && !loading && (
-                      <button
-                        type="button"
-                        onClick={() => setComposing(true)}
-                        disabled={noWorlds}
-                        className="mt-1 flex w-full items-center gap-2 rounded-[10px] border border-dashed border-line px-3 py-2 text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Plus size={13} aria-hidden />
-                        Nova missão
-                      </button>
-                    )}
-                  </div>
+                  {/* Cards — só renderiza se não minimizado */}
+                  {!isCollapsed && (
+                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
+                      {loading ? <SkeletonCards /> : cards.length === 0 ? (
+                        <div className="flex flex-1 items-center justify-center py-8">
+                          <p className="text-[12px] text-faint">Vazio</p>
+                        </div>
+                      ) : (
+                        cards.map((mission) => (
+                          <KanbanCard key={mission.id} mission={mission}
+                            world={worlds.find((w) => w.id === mission.world_id) ?? null}
+                            pending={pending === mission.id} isDone={col.key === 'done'}
+                            blocked={isBlocked(mission)}
+                            blockedBy={missions.find((m) => m.id === mission.depends_on) ?? null}
+                            onAdvance={() => advance(mission)} onReopen={() => reopen(mission)} onEdit={() => setEditing(mission)}
+                          />
+                        ))
+                      )}
+                      {col.key !== 'done' && !loading && (
+                        <button type="button" onClick={() => setComposing(true)} disabled={noWorlds}
+                          className="mt-1 flex w-full items-center gap-2 rounded-[10px] border border-dashed border-line px-3 py-2 text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure disabled:cursor-not-allowed disabled:opacity-40">
+                          <Plus size={13} aria-hidden />Nova missão
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
 
-            {/* ── Colunas customizadas ──────────────────── */}
+            {/* ── Colunas custom ── */}
             {customCols.map((cc) => {
-              const colMissions = missions.filter(m => (m as any).custom_column_id === cc.id)
+              const colMissions = (worldFilter
+                ? missions.filter(m => m.world_id === worldFilter)
+                : missions
+              ).filter(m => (m as any).custom_column_id === cc.id)
+
+              const isExpanded = expandedCol === cc.id
+              const isCollapsed = expandedCol !== null && expandedCol !== cc.id
+
               return (
-                <div key={cc.id}
-                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
+                <div
+                  key={cc.id}
+                  className={`flex flex-col transition-all duration-300 ease-in-out ${
+                    isExpanded  ? 'flex-[3] min-w-[360px]' :
+                    isCollapsed ? 'w-12 min-w-[48px] shrink-0' :
+                                  'flex-1 min-w-[200px]'
+                  }`}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
                   onDrop={async (e) => {
                     e.preventDefault()
-                    const id = e.dataTransfer.getData('mission-id')
-                    if (!id) return
+                    const id = e.dataTransfer.getData('mission-id'); if (!id) return
+                    const m = missions.find((x) => x.id === id); if (!m) return
+                    // Já está nessa coluna custom
+                    if ((m as any).custom_column_id === cc.id) return
                     try {
                       const updated = await updateMission(id, { status: 'in_progress' })
-                      // Salvar custom_column_id via patch direto (campo ainda não no type)
-                      const { supabase } = await import('../lib/supabase')
-                      await (supabase.from('missions') as any).update({ custom_column_id: cc.id }).eq('id', id)
+                      const { supabase: sb } = await import('../lib/supabase')
+                      await (sb.from('missions') as any).update({ custom_column_id: cc.id }).eq('id', id)
                       putMission({ ...updated, custom_column_id: cc.id } as any)
                     } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
                   }}
                 >
+                  {/* Header custom */}
                   <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
-                    <div className="relative h-[72px] overflow-hidden">
-                      <img src={imgSrc(cc.img_key)} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
-                      <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`size-2 rounded-full ${cc.dot_color}`} aria-hidden />
-                            <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
-                          </div>
-                          <p className="text-[10px] text-white/60">Coluna personalizada</p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
-                            {colMissions.length}
-                          </span>
-                          <button type="button" onClick={() => removeCustomColumn(cc.id)}
-                            className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-red-400/30 hover:text-white"
-                            aria-label="Remover coluna">
-                            <X size={10} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
-                    {colMissions.length === 0 ? (
-                      <div className="flex flex-1 items-center justify-center py-8">
-                        <p className="text-[12px] text-faint">Arraste missões aqui</p>
+                    {isCollapsed ? (
+                      <div className="flex h-full min-h-[72px] flex-col items-center justify-between rounded-[12px] border border-line/50 bg-raised/30 py-2.5">
+                        <button type="button" onClick={() => setExpandedCol(null)} className="text-faint hover:text-azure" title="Restaurar todas">
+                          <ChevronRight size={13} />
+                        </button>
+                        <span className={`size-2 rounded-full ${cc.dot_color}`} />
+                        <span className="text-[9px] text-faint" style={{ writingMode: 'vertical-rl', letterSpacing: 1 }}>
+                          {cc.label} · {colMissions.length}
+                        </span>
                       </div>
                     ) : (
-                      colMissions.map((mission) => (
-                        <KanbanCard
-                          key={mission.id}
-                          mission={mission}
-                          world={worlds.find(w => w.id === mission.world_id) ?? null}
-                          pending={pending === mission.id}
-                          isDone={false}
-                          blocked={isBlocked(mission)}
-                          blockedBy={missions.find(m => m.id === mission.depends_on) ?? null}
-                          onAdvance={() => advance(mission)}
-                          onReopen={() => reopen(mission)}
-                          onEdit={() => setEditing(mission)}
-                        />
-                      ))
+                      <div className="relative h-[72px] overflow-hidden">
+                        <img src={imgSrc(cc.img_key)} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)' }} />
+                        <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`size-2 rounded-full ${cc.dot_color}`} aria-hidden />
+                              <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
+                            </div>
+                            <p className="text-[10px] text-white/55">Coluna personalizada</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">{colMissions.length}</span>
+                            <button type="button"
+                              onClick={(e) => { e.stopPropagation(); setExpandedCol(isExpanded ? null : cc.id) }}
+                              className="rounded-full bg-white/10 p-1 text-white/60 hover:bg-white/25 hover:text-white"
+                              title={isExpanded ? 'Restaurar' : 'Maximizar'}>
+                              {isExpanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                            </button>
+                            <button type="button" onClick={() => removeCustomColumn(cc.id)}
+                              className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-red-400/30 hover:text-white" aria-label="Remover coluna">
+                              <X size={10} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     )}
-                    <button type="button" onClick={() => setComposing(true)} disabled={noWorlds}
-                      className="mt-1 flex w-full items-center gap-2 rounded-[10px] border border-dashed border-line px-3 py-2 text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure disabled:cursor-not-allowed disabled:opacity-40">
-                      <Plus size={13} aria-hidden />
-                      Nova missão
-                    </button>
                   </div>
+
+                  {!isCollapsed && (
+                    <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
+                      {colMissions.length === 0 ? (
+                        <div className="flex flex-1 items-center justify-center py-8">
+                          <p className="text-[12px] text-faint">Arraste missões aqui</p>
+                        </div>
+                      ) : (
+                        colMissions.map((mission) => (
+                          <KanbanCard key={mission.id} mission={mission}
+                            world={worlds.find(w => w.id === mission.world_id) ?? null}
+                            pending={pending === mission.id} isDone={false}
+                            blocked={isBlocked(mission)}
+                            blockedBy={missions.find(m => m.id === mission.depends_on) ?? null}
+                            onAdvance={() => advance(mission)} onReopen={() => reopen(mission)} onEdit={() => setEditing(mission)}
+                          />
+                        ))
+                      )}
+                      <button type="button" onClick={() => setComposing(true)} disabled={noWorlds}
+                        className="mt-1 flex w-full items-center gap-2 rounded-[10px] border border-dashed border-line px-3 py-2 text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure disabled:cursor-not-allowed disabled:opacity-40">
+                        <Plus size={13} aria-hidden />Nova missão
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}
 
-            {/* ── Botão adicionar coluna ────────────────── */}
-            <div className="flex w-[220px] shrink-0 flex-col">
+            {/* ── Botão nova coluna ── */}
+            <div className="flex w-[200px] shrink-0 flex-col">
               {addingCol ? (
                 <div className="rounded-[12px] border border-line bg-surface p-3">
-                  <input
-                    type="text"
-                    placeholder="Nome da coluna"
-                    value={newColName}
+                  <input type="text" placeholder="Nome da coluna" value={newColName}
                     onChange={(e) => setNewColName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addCustomColumn()}
-                    autoFocus
-                    className="mb-2 h-8 w-full rounded-[8px] border border-line bg-raised px-3 text-[13px] text-text outline-none focus:border-azure"
-                  />
+                    onKeyDown={(e) => e.key === 'Enter' && addCustomColumn()} autoFocus
+                    className="mb-2 h-8 w-full rounded-[8px] border border-line bg-raised px-3 text-[13px] text-text outline-none focus:border-azure" />
                   <div className="flex gap-2">
                     <button type="button" onClick={addCustomColumn}
-                      className="flex-1 rounded-[8px] bg-azure px-3 py-1.5 text-[12px] font-medium text-white hover:bg-azure/90">
-                      Criar
-                    </button>
+                      className="flex-1 rounded-[8px] bg-azure px-3 py-1.5 text-[12px] font-medium text-white hover:bg-azure/90">Criar</button>
                     <button type="button" onClick={() => { setAddingCol(false); setNewColName('') }}
-                      className="rounded-[8px] px-3 py-1.5 text-[12px] text-faint hover:text-text">
-                      Cancelar
-                    </button>
+                      className="rounded-[8px] px-3 py-1.5 text-[12px] text-faint hover:text-text">Cancelar</button>
                   </div>
                 </div>
               ) : (
                 <button type="button" onClick={() => setAddingCol(true)}
                   className="flex h-[72px] w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-line text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure">
-                  <Plus size={14} aria-hidden />
-                  Nova coluna
+                  <Plus size={14} aria-hidden />Nova coluna
                 </button>
               )}
             </div>
@@ -549,7 +542,7 @@ export default function Missions() {
         </div>
       )}
 
-      </div>{/* fim da área de kanban com px */}
+            </div>{/* fim da área de kanban com px */}
 
       <MissionForm
         key={editing?.id ?? (composing ? 'new' : 'closed')}
