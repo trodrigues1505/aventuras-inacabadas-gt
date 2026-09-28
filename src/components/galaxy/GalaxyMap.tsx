@@ -186,17 +186,29 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         <ellipse cx={CX} cy={CY} rx={45}  ry={28} fill="#7c3aed" opacity="0.2" filter="url(#glow-lg)"/>
         <circle  cx={CX} cy={CY} r={6}  fill="#c4b5fd" opacity="0.95" filter="url(#glow-sm)"/>
 
-        {/* ── Nave do jogador (Andarilha) ───────────────────── */}
-        <g transform={`translate(${CX + 65}, ${CY - 18})`}>
-          <image href="assets/nave.webp" x={-28} y={-10} width={56} height={20}
-            opacity="0.85" filter="url(#glow-sm)"
-            style={{ transform: 'scaleX(-1)', transformOrigin: 'center' }}
-          />
-          {/* Glow engine */}
-          <circle cx={-26} cy={0} r={3} fill="#60a0ff" opacity="0.6" filter="url(#glow-sm)">
-            <animate attributeName="opacity" values="0.4;0.8;0.4" dur="1.8s" repeatCount="indefinite"/>
-          </circle>
-        </g>
+        {/* ── Nave do jogador — acima do primeiro planeta colonizado ── */}
+        {(() => {
+          const home = worlds.find(w => w.status === 'colonized') ?? null
+          if (!home) return null
+          const [hx, hy] = worldToSVG(home.coord_x, home.coord_y)
+          const nx = hx + 42
+          const ny = hy - 36
+          return (
+            <g transform={`translate(${nx}, ${ny})`}>
+              {/* sombra/glow sob a nave */}
+              <ellipse cx={0} cy={4} rx={22} ry={5} fill="#3b82f6" opacity="0.18" filter="url(#glow-lg)"/>
+              <image href="assets/nave.webp"
+                x={-22} y={-9} width={44} height={18}
+                opacity="0.92" filter="url(#glow-sm)"
+              />
+              {/* propulsão pulsante */}
+              <circle cx={-21} cy={0} r={2.5} fill="#60a0ff" opacity="0.7" filter="url(#glow-sm)">
+                <animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.6s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx={-21} cy={0} r={1} fill="#ffffff" opacity="0.9"/>
+            </g>
+          )
+        })()}
 
         {/* ── Planetas ───────────────────────────────────────── */}
         {worlds.map(w => {

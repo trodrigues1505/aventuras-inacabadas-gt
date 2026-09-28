@@ -160,3 +160,15 @@ export type ExploredWorld = {
   missions_won: number
   explored_pct: number
 }
+
+// ── Colunas Kanban personalizadas (Fase 3) ──
+
+export type KanbanColumn = {
+  id: string
+  user_id: string
+  label: string
+  position: number
+  img_key: string        // chave da imagem (slug de kanban-header-*.webp)
+  dot_color: string      // cor tailwind ex: 'bg-violet'
+  created_at: string
+}

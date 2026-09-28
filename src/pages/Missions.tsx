@@ -23,6 +23,10 @@ import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
 import { useToast } from '../hooks/ToastProvider'
 import {
+  listKanbanColumns, createKanbanColumn, deleteKanbanColumn, imgSrc,
+} from '../services/kanbanService'
+import type { KanbanColumn } from '../types/database'
+import {
   createLink,
   createMission,
   createSubtask,
@@ -73,29 +77,6 @@ const MISSION_TYPE_TOOLTIP: Record<MissionType, string> = {
 }
 
 
-// Imagens de planetas para colunas custom (aleatória)
-const PLANET_IMAGES = [
-  'assets/kanban/kanban-header-mapeadas.webp',
-  'assets/kanban/kanban-header-em-curso.webp',
-  'assets/kanban/kanban-header-para-confirmar.webp',
-  'assets/kanban/kanban-header-arquivadas.webp',
-]
-
-// Cores para colunas custom (rotação)
-const CUSTOM_DOT_COLORS = ['bg-violet', 'bg-cyan', 'bg-azure', 'bg-ember', 'bg-good']
-// const CUSTOM_TEXT_COLORS reserved for future use
-
-type CustomColumn = { id: string; label: string; img: string; dotIdx: number }
-
-function loadCustomColumns(): CustomColumn[] {
-  try {
-    return JSON.parse(localStorage.getItem('ai-custom-cols') ?? '[]')
-  } catch { return [] }
-}
-function saveCustomColumns(cols: CustomColumn[]) {
-  localStorage.setItem('ai-custom-cols', JSON.stringify(cols))
-}
-
 const BLANK: MissionDraft = {
   title: '', description: null, world_id: null,
   priority: 'mid', type: 'operacao', due_date: null, estimated_minutes: null,
@@ -113,7 +94,7 @@ export default function Missions() {
   const [removing, setRemoving] = useState<Mission | null>(null)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
-  const [customCols, setCustomCols] = useState<CustomColumn[]>(loadCustomColumns)
+  const [customCols, setCustomCols] = useState<KanbanColumn[]>([])
   const [addingCol, setAddingCol] = useState(false)
   const [newColName, setNewColName] = useState('')
 
@@ -222,42 +203,33 @@ export default function Missions() {
     }
   }
 
-  function addCustomColumn() {
-    if (!newColName.trim()) return
-    const col: CustomColumn = {
-      id: `custom-${Date.now()}`,
-      label: newColName.trim(),
-      img: PLANET_IMAGES[Math.floor(Math.random() * PLANET_IMAGES.length)],
-      dotIdx: customCols.length % CUSTOM_DOT_COLORS.length,
-    }
-    const next = [...customCols, col]
-    setCustomCols(next)
-    saveCustomColumns(next)
-    setNewColName('')
-    setAddingCol(false)
+  async function addCustomColumn() {
+    if (!newColName.trim() || !session?.user.id) return
+    try {
+      const col = await createKanbanColumn(session.user.id, newColName.trim(), customCols.length)
+      setCustomCols(prev => [...prev, col])
+      setNewColName('')
+      setAddingCol(false)
+    } catch (e) { toast('error', e instanceof Error ? e.message : 'Erro ao criar coluna') }
   }
 
-  function removeCustomColumn(id: string) {
-    const next = customCols.filter((c) => c.id !== id)
-    setCustomCols(next)
-    saveCustomColumns(next)
+  async function removeCustomColumn(id: string) {
+    try {
+      await deleteKanbanColumn(id)
+      setCustomCols(prev => prev.filter(c => c.id !== id))
+    } catch (e) { toast('error', e instanceof Error ? e.message : 'Erro ao remover coluna') }
   }
+
+  // Carregar colunas custom do banco
+  useEffect(() => {
+    if (!session?.user.id) return
+    listKanbanColumns(session.user.id).then(setCustomCols).catch(() => {})
+  }, [session?.user.id])
 
   const noWorlds = worlds.length === 0
 
   return (
     <main className="flex h-[calc(100dvh-0px)] flex-col">
-      {/* ── Header com cena espacial ────────────────────── */}
-      <div className="relative shrink-0 overflow-hidden" style={{ height: 110 }}>
-        <img src="assets/header-bg.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-center" style={{ opacity: 0.6 }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, var(--color-ink) 0%, transparent 25%, transparent 55%, transparent 100%), linear-gradient(to bottom, transparent 10%, var(--color-ink) 100%)' }} aria-hidden />
-        <img src="assets/nave.webp" alt="" aria-hidden className="absolute right-6 top-1/2 -translate-y-1/2 opacity-70 md:right-12" style={{ width: 180, height: 'auto' }} loading="lazy" />
-        <div className="absolute bottom-0 left-0 px-5 pb-3 md:px-10">
-          <h1 className="display text-[22px] text-text">Missões</h1>
-          <p className="text-[12px] text-muted">Organize, acompanhe e conclua suas missões.</p>
-        </div>
-      </div>
-
       {/* ── Filtros ──────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-3 px-5 pt-4 md:px-10">
         {worlds.length > 0 && (
@@ -354,35 +326,80 @@ export default function Missions() {
             })}
 
             {/* ── Colunas customizadas ──────────────────── */}
-            {customCols.map((cc) => (
-              <div key={cc.id} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
-                <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
-                  <div className="relative h-[72px] overflow-hidden">
-                    <img src={cc.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
-                    <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`size-2 rounded-full ${CUSTOM_DOT_COLORS[cc.dotIdx]}`} aria-hidden />
-                          <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
+            {customCols.map((cc) => {
+              const colMissions = missions.filter(m => (m as any).custom_column_id === cc.id)
+              return (
+                <div key={cc.id}
+                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const id = e.dataTransfer.getData('mission-id')
+                    if (!id) return
+                    try {
+                      const updated = await updateMission(id, { status: 'in_progress' })
+                      // Salvar custom_column_id via patch direto (campo ainda não no type)
+                      const { supabase } = await import('../lib/supabase')
+                      await (supabase.from('missions') as any).update({ custom_column_id: cc.id }).eq('id', id)
+                      putMission({ ...updated, custom_column_id: cc.id } as any)
+                    } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
+                  }}
+                >
+                  <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
+                    <div className="relative h-[72px] overflow-hidden">
+                      <img src={imgSrc(cc.img_key)} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%)' }} />
+                      <div className="absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`size-2 rounded-full ${cc.dot_color}`} aria-hidden />
+                            <h2 className="text-[13px] font-semibold text-white">{cc.label}</h2>
+                          </div>
+                          <p className="text-[10px] text-white/60">Coluna personalizada</p>
                         </div>
-                        <p className="text-[10px] text-white/60">Coluna personalizada</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] tabular-nums text-white backdrop-blur-sm">
+                            {colMissions.length}
+                          </span>
+                          <button type="button" onClick={() => removeCustomColumn(cc.id)}
+                            className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-red-400/30 hover:text-white"
+                            aria-label="Remover coluna">
+                            <X size={10} />
+                          </button>
+                        </div>
                       </div>
-                      <button type="button" onClick={() => removeCustomColumn(cc.id)}
-                        className="rounded-full bg-white/10 p-1 text-white/50 hover:bg-white/20 hover:text-white"
-                        aria-label="Remover coluna">
-                        <X size={10} />
-                      </button>
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
-                  <div className="flex flex-1 items-center justify-center py-8">
-                    <p className="text-[12px] text-faint">Em breve</p>
+                  <div className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[14px] bg-raised/50 p-2">
+                    {colMissions.length === 0 ? (
+                      <div className="flex flex-1 items-center justify-center py-8">
+                        <p className="text-[12px] text-faint">Arraste missões aqui</p>
+                      </div>
+                    ) : (
+                      colMissions.map((mission) => (
+                        <KanbanCard
+                          key={mission.id}
+                          mission={mission}
+                          world={worlds.find(w => w.id === mission.world_id) ?? null}
+                          pending={pending === mission.id}
+                          isDone={false}
+                          blocked={isBlocked(mission)}
+                          blockedBy={missions.find(m => m.id === mission.depends_on) ?? null}
+                          onAdvance={() => advance(mission)}
+                          onReopen={() => reopen(mission)}
+                          onEdit={() => setEditing(mission)}
+                        />
+                      ))
+                    )}
+                    <button type="button" onClick={() => setComposing(true)} disabled={noWorlds}
+                      className="mt-1 flex w-full items-center gap-2 rounded-[10px] border border-dashed border-line px-3 py-2 text-[12px] text-faint transition-colors duration-150 hover:border-azure/40 hover:text-azure disabled:cursor-not-allowed disabled:opacity-40">
+                      <Plus size={13} aria-hidden />
+                      Nova missão
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {/* ── Botão adicionar coluna ────────────────── */}
             <div className="flex w-[220px] shrink-0 flex-col">
