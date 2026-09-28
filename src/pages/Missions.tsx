@@ -487,10 +487,17 @@ function KanbanCard({
 
   return (
     <article
+      draggable={!isDone && !blocked && !pending}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('mission-id', mission.id)
+        e.dataTransfer.effectAllowed = 'move'
+        setTimeout(() => { (e.target as HTMLElement).style.opacity = '0.4' }, 0)
+      }}
+      onDragEnd={(e) => { (e.target as HTMLElement).style.opacity = '' }}
       className={`group relative flex flex-col gap-2 rounded-[12px] border bg-surface p-3 transition-all duration-150 hover:shadow-sm ${
         isDone ? 'opacity-60 border-line' :
         blocked ? 'border-faint/40 bg-raised/60' : 'border-line'
-      } ${pending ? 'opacity-50' : ''}`}
+      } ${pending ? 'opacity-50' : ''} ${!isDone && !blocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       {blocked && (
         <div className="flex items-center gap-1.5 rounded-[6px] bg-ember/10 px-2 py-1">

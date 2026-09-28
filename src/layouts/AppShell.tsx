@@ -185,11 +185,11 @@ function PageHeader({ pathname }: { pathname: string }) {
             <h1 className="display text-[20px] leading-tight text-white">{meta.title}</h1>
             <p className="text-[11px] text-white/55">{BRAND.ship} · nível {playerState.level}</p>
           </div>
-          {/* barra de XP compacta */}
-          <div className="mb-0.5 hidden w-36 sm:block">
+          {/* progresso XP compacto */}
+          <div className="mb-0.5 hidden w-40 sm:block">
             <div className="mb-1 flex items-baseline justify-between text-[10px]">
-              <span className="text-white/40">Exploração</span>
-              <span className="tabular-nums text-white/60">{playerState.xp}/{required}</span>
+              <span className="text-white/50">Próx. nível</span>
+              <span className="tabular-nums text-white/65">{pct}%</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-azure transition-[width] duration-700"

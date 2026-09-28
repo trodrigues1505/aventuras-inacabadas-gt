@@ -186,34 +186,25 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
         <ellipse cx={CX} cy={CY} rx={45}  ry={28} fill="#7c3aed" opacity="0.2" filter="url(#glow-lg)"/>
         <circle  cx={CX} cy={CY} r={6}  fill="#c4b5fd" opacity="0.95" filter="url(#glow-sm)"/>
 
-        {/* ── Nave do jogador — acima do primeiro planeta colonizado ── */}
+        {/* ── Nave do jogador — centralizada sobre o planeta colonizado ── */}
         {(() => {
-          // Nave sobre o planeta colonizado — centralizada no topo do círculo
           const home = worlds.find(w => w.status === 'colonized') ?? null
           if (!home) return null
           const [hx, hy] = worldToSVG(home.coord_x, home.coord_y)
-          // pr = raio do planeta (mesmo cálculo do render dos planetas)
-          const pr = home.id === undefined ? 24 : 24
-          // Nave fica centralizada horizontalmente no planeta, acima do topo
-          const nx = hx
-          const ny = hy - pr - 10   // justo acima do anel superior do planeta
+          // Nave pequena, centralizada no centro do planeta
+          // w=36 h=14 — proporcional à imagem da nave (aspect ~2.5:1)
+          const nw = 36, nh = 14
           return (
-            <g transform={`translate(${nx}, ${ny})`}>
-              {/* glow de propulsão */}
-              <ellipse cx={0} cy={6} rx={28} ry={6} fill="#3b82f6" opacity="0.15" filter="url(#glow-lg)"/>
-              {/* nave centralizada: largura 64, altura 26 */}
+            <g style={{ mixBlendMode: 'screen' }}>
               <image href="assets/nave.webp"
-                x={-32} y={-13} width={64} height={26}
-                opacity="0.95" filter="url(#glow-sm)"
-                style={{ mixBlendMode: 'screen' }}
+                x={hx - nw / 2} y={hy - nh / 2}
+                width={nw} height={nh}
+                opacity="0.95"
               />
-              {/* propulsão esquerda */}
-              <circle cx={-30} cy={2} r={3} fill="#60a0ff" opacity="0.8" filter="url(#glow-sm)">
-                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.4s" repeatCount="indefinite"/>
-              </circle>
-              {/* propulsão direita */}
-              <circle cx={-30} cy={10} r={3} fill="#60a0ff" opacity="0.8" filter="url(#glow-sm)">
-                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.4s" begin="0.3s" repeatCount="indefinite"/>
+              {/* propulsão pulsante — lado esquerdo da nave */}
+              <circle cx={hx - nw / 2 - 2} cy={hy} r={2} fill="#60a0ff" opacity="0.9" filter="url(#glow-sm)">
+                <animate attributeName="r" values="1.5;3;1.5" dur="1.2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;1;0.6" dur="1.2s" repeatCount="indefinite"/>
               </circle>
             </g>
           )
