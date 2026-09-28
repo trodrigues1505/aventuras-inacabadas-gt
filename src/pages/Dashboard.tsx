@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Coins, Globe2, Radar, Sparkles, Target, TrendingUp, Users } from 'lucide-react'
+import { ArrowRight, Globe2, Radar, Sparkles, Target, TrendingUp, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { Avatar } from '../layouts/AppShell'
 import { EmptyState } from '../components/Bits'
 import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
-import { ACCENT, getXpRequiredForLevel } from '../data/gameConfig'
+import { ACCENT } from '../data/gameConfig'
 import { findCrew } from '../data/crew'
 import { BRAND } from '../data/brand'
 import type { LucideIcon } from 'lucide-react'
@@ -60,42 +60,16 @@ export default function Dashboard() {
   if (!profile || !playerState) return null
 
   const crew = findCrew(playerState.crew_id)
-  const required = getXpRequiredForLevel(playerState.level)
-  const pct = Math.min(100, Math.round((playerState.xp / required) * 100))
   const nome = profile.display_name ?? 'Aventureiro'
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-8 md:px-10 md:py-10">
-      <section className="rise mb-6 rounded-[18px] border border-line bg-surface p-6 md:p-7">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:gap-8">
-          <div className="flex min-w-0 items-center gap-4">
-            <Avatar url={profile.avatar_url} name={nome} size={54} />
-            <div className="min-w-0">
-              <h1 className="display truncate text-[24px] text-text md:text-[26px]">Olá, {nome}</h1>
-              <p className="text-[13px] text-muted">{BRAND.ship} · autonomia {playerState.level}</p>
-            </div>
-          </div>
-          <div className="min-w-0 flex-1 md:max-w-[280px]">
-            <div className="mb-1.5 flex items-baseline justify-between text-[12px]">
-              <span className="text-muted">Progresso de exploração</span>
-              <span className="tabular-nums font-medium text-ember">{playerState.xp} / {required}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-raised">
-              <div className="h-full rounded-full bg-azure transition-[width] duration-700" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-          <div className="flex gap-7 md:border-l md:border-line md:pl-8">
-            <div>
-              <p className="text-[12px] text-faint">Autonomia</p>
-              <p className="text-[22px] font-semibold tabular-nums text-text">{playerState.level}</p>
-            </div>
-            <div>
-              <p className="text-[12px] text-faint">Créditos</p>
-              <p className="flex items-center gap-1.5 text-[22px] font-semibold tabular-nums text-text">
-                <Coins size={17} className="text-ember" aria-hidden />
-                {playerState.currency}
-              </p>
-            </div>
+      <section className="rise mb-6 rounded-[18px] border border-line bg-surface p-5 md:p-6">
+        <div className="flex min-w-0 items-center gap-4">
+          <Avatar url={profile.avatar_url} name={nome} size={48} />
+          <div className="min-w-0">
+            <h1 className="display truncate text-[22px] text-text">Olá, {nome}</h1>
+            <p className="text-[12px] text-muted">{BRAND.ship} · capitão nível {playerState.level}</p>
           </div>
         </div>
       </section>
