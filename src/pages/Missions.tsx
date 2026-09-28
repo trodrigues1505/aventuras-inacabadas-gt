@@ -265,7 +265,37 @@ export default function Missions() {
             {COLUMNS.map((col) => {
               const cards = byStatus[col.key] ?? []
               return (
-                <div key={col.key} className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col">
+                <div
+                  key={col.key}
+                  className="flex w-[calc(25%-12px)] min-w-[220px] flex-1 flex-col"
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const id = e.dataTransfer.getData('mission-id')
+                    if (!id) return
+                    const m = missions.find((x) => x.id === id)
+                    if (!m || m.status === col.key) return
+                    if (col.key === 'done') {
+                      if (!playerState) return
+                      setPending(id)
+                      try {
+                        const result = await toggleMission(m, playerState, missions)
+                        putMission(result.mission)
+                        applyPlayerState(result.state)
+                        if (result.crewNote) toast('info', result.crewNote)
+                        if (result.planetNote) toast('info', result.planetNote)
+                        if (result.leveledUpTo) toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
+                        else if (result.xpGained > 0) toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)
+                      } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
+                      finally { setPending(null) }
+                    } else {
+                      try {
+                        const updated = await updateMission(id, { status: col.key })
+                        putMission(updated)
+                      } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
+                    }
+                  }}
+                >
                   <div className="mb-3 overflow-hidden rounded-[12px] border border-line">
                     <div className="relative h-[72px] overflow-hidden">
                       <img src={col.img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" aria-hidden />

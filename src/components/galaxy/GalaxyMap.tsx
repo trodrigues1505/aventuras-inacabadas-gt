@@ -220,8 +220,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           const isAvailable = w.status === 'available'
           const hasSphere   = HAS_SPHERE.has(w.slug) && !isLocked
           const pr          = isSelected ? 30 : isHovered ? 27 : 24
-          const displayName = isLocked ? '???' : isColonized
-            ? (w.playerWorld?.title ?? w.name) : w.name
+          const displayName = isLocked ? '???' : w.name
 
           return (
             <g key={w.id}
@@ -305,6 +304,17 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
               >
                 {displayName}
               </text>
+              {isColonized && w.playerWorld?.title && (
+                <text x={px} y={py + pr + 26}
+                  textAnchor="middle"
+                  fill={w.color_primary}
+                  fontSize="9"
+                  fontFamily="'Space Grotesk',sans-serif"
+                  opacity="0.75"
+                >
+                  {w.playerWorld.title}
+                </text>
+              )}
 
               {/* Dot de status */}
               {!isLocked && (
