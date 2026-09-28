@@ -188,24 +188,33 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
 
         {/* ── Nave do jogador — acima do primeiro planeta colonizado ── */}
         {(() => {
+          // Nave sobre o planeta colonizado — centralizada no topo do círculo
           const home = worlds.find(w => w.status === 'colonized') ?? null
           if (!home) return null
           const [hx, hy] = worldToSVG(home.coord_x, home.coord_y)
-          const nx = hx + 42
-          const ny = hy - 36
+          // pr = raio do planeta (mesmo cálculo do render dos planetas)
+          const pr = home.id === undefined ? 24 : 24
+          // Nave fica centralizada horizontalmente no planeta, acima do topo
+          const nx = hx
+          const ny = hy - pr - 10   // justo acima do anel superior do planeta
           return (
             <g transform={`translate(${nx}, ${ny})`}>
-              {/* sombra/glow sob a nave */}
-              <ellipse cx={0} cy={4} rx={22} ry={5} fill="#3b82f6" opacity="0.18" filter="url(#glow-lg)"/>
+              {/* glow de propulsão */}
+              <ellipse cx={0} cy={6} rx={28} ry={6} fill="#3b82f6" opacity="0.15" filter="url(#glow-lg)"/>
+              {/* nave centralizada: largura 64, altura 26 */}
               <image href="assets/nave.webp"
-                x={-22} y={-9} width={44} height={18}
-                opacity="0.92" filter="url(#glow-sm)"
+                x={-32} y={-13} width={64} height={26}
+                opacity="0.95" filter="url(#glow-sm)"
+                style={{ mixBlendMode: 'screen' }}
               />
-              {/* propulsão pulsante */}
-              <circle cx={-21} cy={0} r={2.5} fill="#60a0ff" opacity="0.7" filter="url(#glow-sm)">
-                <animate attributeName="opacity" values="0.4;0.9;0.4" dur="1.6s" repeatCount="indefinite"/>
+              {/* propulsão esquerda */}
+              <circle cx={-30} cy={2} r={3} fill="#60a0ff" opacity="0.8" filter="url(#glow-sm)">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.4s" repeatCount="indefinite"/>
               </circle>
-              <circle cx={-21} cy={0} r={1} fill="#ffffff" opacity="0.9"/>
+              {/* propulsão direita */}
+              <circle cx={-30} cy={10} r={3} fill="#60a0ff" opacity="0.8" filter="url(#glow-sm)">
+                <animate attributeName="opacity" values="0.5;1;0.5" dur="1.4s" begin="0.3s" repeatCount="indefinite"/>
+              </circle>
             </g>
           )
         })()}
