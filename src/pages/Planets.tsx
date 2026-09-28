@@ -91,10 +91,12 @@ export default function Planets() {
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}/>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-text">
-                        {world.playerWorld?.title ?? world.name}
+                      <p className="truncate font-semibold text-text">{world.name}</p>
+                      <p className="text-xs text-faint">
+                        {world.playerWorld?.title
+                          ? <>{world.playerWorld.title} · {world.biome}</>
+                          : <>{world.name} · {world.biome}</>}
                       </p>
-                      <p className="text-xs text-faint">{world.name} · {world.biome}</p>
                     </div>
                     <ChevronRight size={16} className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5"/>
                   </div>
@@ -112,10 +114,10 @@ export default function Planets() {
                   onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}/>
                 <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface to-transparent"/>
                 <div className="absolute bottom-3 left-4">
-                  <p className="text-xs text-faint">{spotlight.name}</p>
-                  <p className="text-lg font-bold text-text">
-                    {spotlight.playerWorld?.title ?? spotlight.name}
-                  </p>
+                  <p className="text-lg font-bold text-text">{spotlight.name}</p>
+                  {spotlight.playerWorld?.title && (
+                    <p className="text-xs" style={{ color: spotlight.color_primary }}>{spotlight.playerWorld.title}</p>
+                  )}
                 </div>
               </div>
 

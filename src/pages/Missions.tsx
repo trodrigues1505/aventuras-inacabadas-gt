@@ -515,9 +515,14 @@ function KanbanCard({
       </p>
 
       {world && accent && (
-        <div className="flex items-center gap-1.5">
-          <span className={`size-1.5 rounded-full ${accent.dot}`} aria-hidden />
-          <span className="text-[11px] text-muted">{world.name}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className={`size-1.5 rounded-full ${accent.dot}`} aria-hidden />
+            <span className="text-[11px] font-medium text-muted">{world.name}</span>
+          </div>
+          {world.description && (
+            <span className="pl-3 text-[10px] text-faint">{world.description}</span>
+          )}
         </div>
       )}
 
@@ -817,7 +822,7 @@ function MissionForm({
                 >
                   <option value="">Sem planeta</option>
                   {worlds.map((w) => (
-                    <option key={w.id} value={w.id}>{w.icon} {w.name}</option>
+                    <option key={w.id} value={w.id}>{w.icon} {w.name}{w.description ? ` (${w.description})` : ''}</option>
                   ))}
                 </Select>
               )}

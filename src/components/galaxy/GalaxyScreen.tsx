@@ -146,7 +146,7 @@ function PlanetPanel({ world, onBack, onExplore }: {
   const isColonized = world.status === 'colonized'
   const isAvailable = world.status === 'available'
   const isLocked = world.status === 'locked'
-  const displayName = isColonized ? (world.playerWorld?.title ?? world.name) : world.name
+  // displayName removido — nome e título são exibidos separadamente
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -200,15 +200,20 @@ function PlanetPanel({ world, onBack, onExplore }: {
       {/* Conteúdo */}
       <div className="flex flex-1 flex-col gap-4 p-4">
 
-        {/* Nome + região */}
+        {/* Nome + título + região */}
         <div>
           <div className="flex items-start justify-between gap-2">
             <h2 className="text-xl font-bold leading-tight text-white"
               style={{ fontFamily: "'Space Grotesk',sans-serif",
                 textShadow: isLocked ? 'none' : `0 0 20px ${world.color_glow}60` }}>
-              {isLocked ? '???' : displayName}
+              {isLocked ? '???' : world.name}
             </h2>
           </div>
+          {isColonized && world.playerWorld?.title && (
+            <p className="mt-0.5 text-[12px] font-medium" style={{ color: world.color_primary }}>
+              {world.playerWorld.title}
+            </p>
+          )}
           <p className="mt-1 text-[11px]" style={{ color: 'rgba(148,163,184,0.6)' }}>
             Planeta {world.biome} · {world.region.replace(/-/g, ' ')}
           </p>
@@ -323,10 +328,12 @@ function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithS
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}/>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-white">
-                    {w.playerWorld?.title ?? w.name}
-                  </p>
-                  <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.5)' }}>{w.name}</p>
+                  <p className="truncate text-xs font-semibold text-white">{w.name}</p>
+                  {w.playerWorld?.title && (
+                    <p className="truncate text-[10px]" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                      {w.playerWorld.title}
+                    </p>
+                  )}
                 </div>
                 <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: '#F59E0B', boxShadow: '0 0 4px rgba(245,158,11,0.6)' }}/>
               </div>

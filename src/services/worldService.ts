@@ -108,8 +108,8 @@ export async function listExploredWorlds(userId: string): Promise<World[]> {
     return {
       id: w.id as string,
       user_id: userId,
-      name: (playerWorld?.title as string) ?? (w.name as string),
-      description: w.lore_short as string | null,
+      name: w.name as string,           // nome fixo do planeta (ex: Thalassa)
+      description: (playerWorld?.title as string) ?? null,  // título do jogador (ex: Escola)
       icon: biomeIcon(w.biome as string | null),
       accent: 'azure' as WorldAccent,
       slug: w.slug as string,
