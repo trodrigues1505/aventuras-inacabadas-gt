@@ -144,3 +144,19 @@ export async function pickAvailableTeam(userId: string): Promise<string[]> {
   }
   return free.slice(0, 3).map((r) => r.crew_id)
 }
+
+/** Marca o desafio de campo como resolvido. Sem recompensas até a Fase 6. */
+export async function resolveFieldChallenge(challengeId: string): Promise<void> {
+  const { error } = await (supabase.rpc as any)('resolve_field_challenge', {
+    p_challenge_id: challengeId,
+  })
+  if (error) throw error
+}
+
+/** Marca o desafio de bordo como resolvido. Sem recompensas até a Fase 6. */
+export async function resolveBridgeChallenge(bridgeId: string): Promise<void> {
+  const { error } = await (supabase.rpc as any)('resolve_bridge_challenge', {
+    p_bridge_id: bridgeId,
+  })
+  if (error) throw error
+}

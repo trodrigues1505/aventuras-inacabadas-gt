@@ -14,7 +14,8 @@ import { loadPlayer } from '../services/playerService'
 import { signOut as doSignOut } from '../services/authService'
 import type { PlayerState, Profile } from '../types/database'
 
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? ''
+// trim(): um secret colado com quebra de linha no fim nunca bateria com o e-mail do login.
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? '').trim()
 
 type AuthValue = {
   ready: boolean
@@ -38,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [playerState, setPlayerState] = useState<PlayerState | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Confirmação pelo próprio banco (função is_admin()), para não depender só
+  // do e-mail embutido no build. Falha silenciosa: sem resposta, vale o e-mail.
+  const [dbAdmin, setDbAdmin] = useState(false)
 
   // Evita recarregar o jogador a cada TOKEN_REFRESHED (que dispara a cada ~1h)
   // e a cada foco de aba: so recarrega quando o usuario muda de fato.
@@ -120,6 +124,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, attempt])
 
+  useEffect(() => {
+    const uid = session?.user.id
+    if (!supabaseConfigured || !uid) {
+      setDbAdmin(false)
+      return
+    }
+    let alive = true
+    ;(async () => {
+      const { data, error: rpcError } = await (supabase.rpc as any)('is_admin')
+      if (alive) setDbAdmin(!rpcError && data === true)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [session?.user.id])
+
   const signOut = useCallback(async () => {
     await doSignOut()
     loadedFor.current = null
@@ -143,12 +163,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const isAdmin = useMemo(
     () =>
+      dbAdmin ||
       Boolean(
         ADMIN_EMAIL &&
           session?.user.email &&
           session.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase(),
       ),
-    [session],
+    [session, dbAdmin],
   )
 
   const value = useMemo<AuthValue>(

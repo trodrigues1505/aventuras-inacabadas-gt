@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Clock, Database, Package, Radio, Rocket } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Badge } from '../Bits'
@@ -17,6 +18,8 @@ import {
   applyBridgeFailure,
   applyFieldFailure,
   pickAvailableTeam,
+  resolveBridgeChallenge,
+  resolveFieldChallenge,
 } from '../../services/challengeService'
 import type {
   ApproachKey,
@@ -212,14 +215,17 @@ function RetryNote({ retryAt }: { retryAt: string | null }) {
 export function FieldCard({ c }: { c: FieldChallenge }) {
   const { session, isAdmin } = useAuth()
   const { worlds } = useGame()
-  const { reloadLists } = useChallenges()
+  const { reloadLists, bridges } = useChallenges()
   const toast = useToast()
   const [selected, setSelected] = useState(c.approaches[0]?.key ?? '')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'ok' | 'fail' | null>(null)
   const now = useNow()
 
   const world = worlds.find((w) => w.id === c.world_id)
   const waiting = c.retry_at != null && new Date(c.retry_at).getTime() > now
+  // GDD: o desafio de bordo vinculado é a porta de entrada — precisa vir antes.
+  const gate = bridges.find((b) => b.challenge_id === c.id)
+  const blocked = waiting || Boolean(gate) || busy !== null
 
   const rows: Row[] = c.approaches.map((a) => {
     const meta = APPROACH[a.key as ApproachKey]
@@ -235,9 +241,22 @@ export function FieldCard({ c }: { c: FieldChallenge }) {
     }
   })
 
+  async function simulateSuccess() {
+    setBusy('ok')
+    try {
+      await resolveFieldChallenge(c.id)
+      toast('reward', 'Desafio resolvido. As recompensas chegam com a rolagem de dados.')
+      await reloadLists()
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Não foi possível resolver.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function simulateFailure() {
     if (!session) return
-    setBusy(true)
+    setBusy('fail')
     try {
       const team = await pickAvailableTeam(session.user.id)
       const r = await applyFieldFailure(c.id, selected, team)
@@ -251,7 +270,7 @@ export function FieldCard({ c }: { c: FieldChallenge }) {
     } catch (e) {
       toast('error', e instanceof Error ? e.message : 'Não foi possível registrar a falha.')
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -284,22 +303,43 @@ export function FieldCard({ c }: { c: FieldChallenge }) {
         <Countdown createdAt={c.created_at} expiresAt={c.expires_at} />
         <ApproachList name={`field-${c.id}`} rows={rows} value={selected} onChange={setSelected} />
         <RetryNote retryAt={c.retry_at} />
+        {gate && (
+          <p className="mt-4 rounded-[10px] bg-ember/10 px-3.5 py-2.5 text-[12px] text-ember">
+            Antes, atravesse o desafio de bordo{' '}
+            <Link to={`/desafio/${gate.id}`} className="font-semibold underline underline-offset-2">
+              {gate.title}
+            </Link>
+            : é a porta de entrada deste planeta.
+          </p>
+        )}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-[300px] text-[12px] text-faint">
             A resolução por rolagem de dados chega na próxima fase.
           </p>
           {isAdmin && (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={simulateFailure}
-              loading={busy}
-              disabled={waiting}
-              title="Teste (só administrador): força uma falha e sorteia o ferimento no servidor"
-            >
-              Simular falha
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={simulateSuccess}
+                loading={busy === 'ok'}
+                disabled={blocked}
+                title="Teste (só administrador): marca o desafio como resolvido, sem recompensas"
+              >
+                Simular sucesso
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={simulateFailure}
+                loading={busy === 'fail'}
+                disabled={blocked}
+                title="Teste (só administrador): força uma falha e sorteia o ferimento no servidor"
+              >
+                Simular falha
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -334,7 +374,7 @@ export function BridgeCard({ b }: { b: BridgeMission }) {
   const { worlds } = useGame()
   const toast = useToast()
   const [selected, setSelected] = useState(b.approaches[0]?.key ?? '')
-  const [busy, setBusy] = useState<'normal' | 'critical' | null>(null)
+  const [busy, setBusy] = useState<'ok' | 'normal' | 'critical' | null>(null)
   const now = useNow()
 
   const linkedWorld = (() => {
@@ -354,6 +394,19 @@ export function BridgeCard({ b }: { b: BridgeMission }) {
       detail: meta?.use ?? '',
     }
   })
+
+  async function simulateSuccess() {
+    setBusy('ok')
+    try {
+      await resolveBridgeChallenge(b.id)
+      toast('reward', 'Travessia concluída. O caminho até o planeta está livre.')
+      await reloadLists()
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Não foi possível resolver.')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function simulateFailure(critical: boolean) {
     if (!session) return
@@ -415,7 +468,17 @@ export function BridgeCard({ b }: { b: BridgeMission }) {
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <HullPips damage={playerState?.hull_damage ?? 0} />
           {isAdmin && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={simulateSuccess}
+                loading={busy === 'ok'}
+                disabled={waiting || busy !== null}
+                title="Teste (só administrador): marca a travessia como concluída, sem recompensas"
+              >
+                Simular sucesso
+              </Button>
               <Button
                 variant="danger"
                 size="sm"
