@@ -50,6 +50,25 @@ function useNow(intervalMs = 60_000) {
   return now
 }
 
+/**
+ * Ferramentas de teste (simular sucesso/falha). Liberadas para o admin OU
+ * por um interruptor local: no console do navegador,
+ *   localStorage.setItem('ai:debug', '1')   // liga
+ *   localStorage.removeItem('ai:debug')     // desliga
+ * O interruptor não dá poder nenhum no servidor: as RPCs só mexem nos
+ * dados do próprio usuário logado.
+ */
+function useDebugTools(): boolean {
+  const { isAdmin } = useAuth()
+  let flag = false
+  try {
+    flag = window.localStorage.getItem('ai:debug') === '1'
+  } catch {
+    /* armazenamento bloqueado: vale só o isAdmin */
+  }
+  return isAdmin || flag
+}
+
 function formatLeft(ms: number): string {
   if (ms <= 0) return 'encerrado'
   const d = Math.floor(ms / DAY)
@@ -213,7 +232,8 @@ function RetryNote({ retryAt }: { retryAt: string | null }) {
 /* ── Desafio de campo ────────────────────────────────────────── */
 
 export function FieldCard({ c }: { c: FieldChallenge }) {
-  const { session, isAdmin } = useAuth()
+  const { session } = useAuth()
+  const debugTools = useDebugTools()
   const { worlds } = useGame()
   const { reloadLists, bridges } = useChallenges()
   const toast = useToast()
@@ -317,7 +337,7 @@ export function FieldCard({ c }: { c: FieldChallenge }) {
           <p className="max-w-[300px] text-[12px] text-faint">
             A resolução por rolagem de dados chega na próxima fase.
           </p>
-          {isAdmin && (
+          {debugTools && (
             <div className="flex gap-2">
               <Button
                 variant="secondary"
@@ -369,7 +389,8 @@ function HullPips({ damage }: { damage: number }) {
 }
 
 export function BridgeCard({ b }: { b: BridgeMission }) {
-  const { session, isAdmin, playerState } = useAuth()
+  const { session, playerState } = useAuth()
+  const debugTools = useDebugTools()
   const { fields, reloadLists } = useChallenges()
   const { worlds } = useGame()
   const toast = useToast()
@@ -467,7 +488,7 @@ export function BridgeCard({ b }: { b: BridgeMission }) {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <HullPips damage={playerState?.hull_damage ?? 0} />
-          {isAdmin && (
+          {debugTools && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="secondary"
