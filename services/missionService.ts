@@ -1,0 +1,494 @@
+import { supabase } from '../lib/supabase'
+import type {
+  Mission,
+  MissionLink,
+  MissionStatus,
+  MissionType,
+  PlayerState,
+  Priority,
+  Recurrence,
+  Subtask,
+  Tag,
+} from '../types/database'
+import {
+  CREDITS_BY_PRIORITY,
+  CREDITS_ON_TIME_BONUS,
+  XP_BY_PRIORITY,
+  XP_ON_TIME_BONUS,
+  RESOURCE_BY_TYPE_PRIORITY,
+  MISSION_TYPE_RESOURCE,
+  getXpRequiredForLevel,
+} from '../data/gameConfig'
+import { applyBonus, findCrew } from '../data/crew'
+import { growCrewAttribute } from './crewService'
+
+// ─── Tipos de rascunho ────────────────────────────────────────────
+
+export type MissionDraft = {
+  title: string
+  description: string | null
+  world_id: string | null
+  priority: Priority
+  type: import('../types/database').MissionType
+  due_date: string | null
+  estimated_minutes: number | null
+  recurrence: Recurrence | null
+  recurrence_days: number | null
+  depends_on: string | null
+}
+
+type MissionUpdate = Partial<MissionDraft> & { status?: MissionStatus }
+
+export type SubtaskDraft = { title: string }
+
+// ─── Bônus de planeta ─────────────────────────────────────────────
+
+/**
+ * Busca o trait_key do planeta fixo vinculado à missão.
+ * Retorna null se a missão não tiver world_id ou se a query falhar.
+ */
+async function fetchPlanetTraitKey(worldId: string | null): Promise<string | null> {
+  if (!worldId) return null
+  const { data, error } = await supabase
+    .from('worlds')
+    .select('trait_key')
+    .eq('id', worldId)
+    .maybeSingle()
+  if (error || !data) return null
+  return ((data as unknown) as { trait_key: string }).trait_key ?? null
+}
+
+type PlanetBonus = { xp: number; credits: number; note: string | null }
+
+/**
+ * Aplica o bônus passivo do planeta à missão sendo concluída.
+ * Os trait_keys correspondem aos 5 planetas do Setor Âncora definidos no GDD.
+ */
+function applyPlanetBonus(
+  traitKey: string | null,
+  mission: Mission,
+  hoje: string,
+  allMissions: Mission[],
+): PlanetBonus {
+  const none: PlanetBonus = { xp: 0, credits: 0, note: null }
+  if (!traitKey) return none
+
+  switch (traitKey) {
+    // Varda — Missões recorrentes +5 XP
+    case 'recurrent_bonus':
+      return mission.recurrence
+        ? { xp: 5, credits: 0, note: 'Varda: rotina reforçada +5 XP' }
+        : none
+
+    // Thalassa — Missões com estimated_minutes >= 120 +8 XP
+    case 'long_mission_bonus':
+      return (mission.estimated_minutes ?? 0) >= 120
+        ? { xp: 8, credits: 0, note: 'Thalassa: missão longa +8 XP' }
+        : none
+
+    // Zerion — Missões de prioridade high +6 XP
+    case 'emergency_bonus':
+      return mission.priority === 'high'
+        ? { xp: 6, credits: 0, note: 'Zerion: emergência respondida +6 XP' }
+        : none
+
+    // Kestrel — Concluir no prazo +5 créditos extras
+    case 'deadline_credits': {
+      const onTime = mission.due_date ? mission.due_date >= hoje : false
+      return onTime
+        ? { xp: 0, credits: 5, note: 'Kestrel: dentro do prazo +5 créditos' }
+        : none
+    }
+
+    // Nyx — Primeira missão concluída do dia +10 XP
+    case 'first_mission_bonus': {
+      const todayDone = allMissions.filter(
+        (m) =>
+          m.id !== mission.id &&
+          m.status === 'done' &&
+          m.completed_at?.slice(0, 10) === hoje,
+      )
+      return todayDone.length === 0
+        ? { xp: 10, credits: 0, note: 'Nyx: primeira missão do dia +10 XP' }
+        : none
+    }
+
+    default:
+      return none
+  }
+}
+
+
+// ─── Atualizar contadores do planeta ──────────────────────────────
+
+async function incrementPlanetCounter(
+  worldId: string | null,
+  playerId: string,
+  field: 'missions_total' | 'missions_won',
+): Promise<void> {
+  if (!worldId) return
+  // Busca o registro atual
+  const { data } = await supabase
+    .from('player_worlds')
+    .select(field)
+    .eq('world_id', worldId)
+    .eq('player_id', playerId)
+    .maybeSingle()
+  if (!data) return
+  const current = ((data as Record<string, number>)[field] ?? 0)
+  await (supabase.from('player_worlds') as any)
+    .update({ [field]: current + 1 })
+    .eq('world_id', worldId)
+    .eq('player_id', playerId)
+}
+
+// ─── Missões ─────────────────────────────────────────────────────
+
+export async function listMissions(userId: string): Promise<Mission[]> {
+  const { data, error } = await supabase
+    .from('missions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as Mission[]
+}
+
+export async function createMission(
+  userId: string,
+  draft: MissionDraft,
+): Promise<Mission> {
+  // Créditos calculados automaticamente — usuário não edita
+  const reward = CREDITS_BY_PRIORITY[draft.priority]
+  const { data, error } = await supabase
+    .from('missions')
+    .insert({ ...draft, user_id: userId, status: 'open', reward, type: draft.type ?? 'operacao' })
+    .select()
+    .single()
+  if (error) throw error
+  // Incrementar contador de missões do planeta
+  await incrementPlanetCounter(draft.world_id, userId, 'missions_total')
+  return data as Mission
+}
+
+export async function updateMission(
+  id: string,
+  update: MissionUpdate,
+): Promise<Mission> {
+  // Se prioridade mudou, recalcula recompensa
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const patch: any = update.priority
+    ? { ...update, reward: CREDITS_BY_PRIORITY[update.priority] }
+    : update
+  const { data, error } = await supabase
+    .from('missions')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data as Mission
+}
+
+export async function deleteMission(id: string): Promise<void> {
+  const { error } = await supabase.from('missions').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── Conclusão / reabertura ───────────────────────────────────────
+
+export type CompletionResult = {
+  mission: Mission
+  state: PlayerState
+  xpGained: number
+  creditsGained: number
+  leveledUpTo: number | null
+  crewNote: string | null
+  crewId: string | null    // para exibir portrait no toast
+  planetNote: string | null
+}
+
+export async function toggleMission(
+  mission: Mission,
+  state: PlayerState,
+  allMissions: Mission[],
+): Promise<CompletionResult> {
+  // 3 casos possíveis:
+  // A) status === 'done'            → reabre (volta para open)
+  // B) status !== 'done' && !completed_at → arquiva COM bônus (primeira vez)
+  // C) status !== 'done' && completed_at  → arquiva SEM bônus (já ganhou antes)
+
+  if (mission.status === 'done') {
+    // Caso A: reabre — preserva completed_at como histórico permanente
+    const { data, error } = await supabase
+      .from('missions')
+      .update({ status: 'open' })
+      .eq('id', mission.id)
+      .select()
+      .single()
+    if (error) throw error
+    return {
+      mission: data as Mission,
+      state,
+      xpGained: 0,
+      creditsGained: 0,
+      leveledUpTo: null,
+      crewNote: null,
+      crewId: null,
+      planetNote: null,
+    }
+  }
+
+  // Caso B ou C — vai arquivar, mas bônus só se nunca foi concluída antes
+  const applyRewards = !mission.completed_at
+
+  // Recompensa base — só aplica se for a primeira vez que vai para done
+  const hoje = new Date().toISOString().slice(0, 10)
+  const baseXp       = applyRewards ? (XP_BY_PRIORITY[mission.priority] ?? 10)      : 0
+  const baseCredits  = applyRewards ? (CREDITS_BY_PRIORITY[mission.priority] ?? 10) : 0
+
+  // Bônus por prazo
+  const onTime       = applyRewards && mission.due_date ? mission.due_date >= hoje : false
+  const onTimeXp     = onTime ? XP_ON_TIME_BONUS    : 0
+  const onTimeCredits = onTime ? CREDITS_ON_TIME_BONUS : 0
+
+  // Bônus do tripulante (só se applyRewards)
+  const bonus = applyRewards
+    ? applyBonus(state.crew_id, mission, baseXp + onTimeXp, baseCredits + onTimeCredits, allMissions)
+    : { xp: 0, credits: 0, note: null }
+
+  // Bônus do planeta (só se applyRewards)
+  const traitKey    = applyRewards ? await fetchPlanetTraitKey(mission.world_id) : null
+  const planetBonus = applyRewards ? applyPlanetBonus(traitKey, mission, hoje, allMissions) : { xp: 0, credits: 0, note: null }
+
+  const xpGained      = baseXp + onTimeXp + bonus.xp + planetBonus.xp
+  const creditsGained = baseCredits + onTimeCredits + bonus.credits + planetBonus.credits
+
+  // Recursos gerados (só se applyRewards)
+  const missionType: MissionType = (mission as Mission & { type?: MissionType }).type ?? 'operacao'
+  const resourceKey    = MISSION_TYPE_RESOURCE[missionType]
+  const baseResource   = applyRewards ? RESOURCE_BY_TYPE_PRIORITY[missionType][mission.priority] : 0
+  const resourceBonus  = onTime ? 2 : 0
+  const resourceGained = baseResource + resourceBonus
+
+  // Level up (só se xpGained > 0)
+  let newXp = state.xp + xpGained
+  let newLevel = state.level
+  let leveledUpTo: number | null = null
+  if (xpGained > 0) {
+    const required = getXpRequiredForLevel(newLevel)
+    if (newXp >= required) {
+      newXp -= required
+      newLevel += 1
+      leveledUpTo = newLevel
+    }
+  }
+
+  const [missionResult, stateResult] = await Promise.all([
+    supabase
+      .from('missions')
+      .update({ status: 'done', completed_at: new Date().toISOString() })
+      .eq('id', mission.id)
+      .select()
+      .single(),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from('player_state') as any)
+      .update({
+        xp: newXp,
+        level: newLevel,
+        currency: state.currency + creditsGained,
+        [resourceKey]: ((state as unknown as Record<string, number>)[resourceKey] ?? 0) + resourceGained,
+      })
+      .eq('user_id', state.user_id)
+      .select()
+      .single(),
+  ])
+
+  if (missionResult.error) throw missionResult.error
+  if (stateResult.error) throw stateResult.error
+
+  // Se missão é recorrente, cria a próxima automaticamente
+  if (mission.recurrence) {
+    await spawnNextRecurrence(mission)
+  }
+
+  // Incrementar contador de missões concluídas do planeta
+  await incrementPlanetCounter(mission.world_id, state.user_id, 'missions_won')
+
+  // Fase 4 — crescimento de atributo do tripulante ativo.
+  // Mesma regra de applyRewards: só cresce na primeira vez que a
+  // missão vai para 'done' (não em reaberturas nem em re-conclusões
+  // já registradas em completed_at). Em missões comuns do Kanban só
+  // o atributo PRINCIPAL do tripulante ativo ganha XP, sempre a 100%
+  // — a variação secundário/terciário é para desafios narrativos e
+  // missões de bordo (Fases 5/6), que chamarão growCrewAttribute com
+  // outro role diretamente de lá.
+  if (applyRewards && state.crew_id) {
+    const activeCrew = findCrew(state.crew_id)
+    if (activeCrew) {
+      // Não deixa uma falha aqui derrubar a conclusão da missão, que
+      // já foi gravada com sucesso acima — só registra no console.
+      try {
+        await growCrewAttribute(state.user_id, activeCrew.id, activeCrew.mainAttribute, 'principal')
+      } catch (e) {
+        console.error('Falha ao aplicar crescimento de atributo:', e)
+      }
+    }
+  }
+
+  return {
+    mission: missionResult.data as Mission,
+    state: stateResult.data as PlayerState,
+    xpGained,
+    creditsGained,
+    leveledUpTo,
+    crewNote: bonus.note,
+    crewId: bonus.note ? state.crew_id : null,  // só passa portrait se teve bônus
+    planetNote: planetBonus.note,
+  }
+}
+
+function nextDueDate(current: string | null, recurrence: Recurrence, days: number | null): string {
+  const base = current ? new Date(`${current}T12:00`) : new Date()
+  switch (recurrence) {
+    case 'daily':   base.setDate(base.getDate() + 1); break
+    case 'weekly':  base.setDate(base.getDate() + 7); break
+    case 'monthly': base.setMonth(base.getMonth() + 1); break
+    case 'custom':  base.setDate(base.getDate() + (days ?? 1)); break
+  }
+  return base.toISOString().slice(0, 10)
+}
+
+async function spawnNextRecurrence(mission: Mission): Promise<void> {
+  const next = nextDueDate(mission.due_date, mission.recurrence!, mission.recurrence_days)
+  const reward = CREDITS_BY_PRIORITY[mission.priority]
+  await supabase.from('missions').insert({
+    user_id: mission.user_id,
+    world_id: mission.world_id,
+    title: mission.title,
+    description: mission.description,
+    priority: mission.priority,
+    status: 'open',
+    due_date: next,
+    reward,
+    estimated_minutes: mission.estimated_minutes,
+    recurrence: mission.recurrence,
+    recurrence_days: mission.recurrence_days,
+    depends_on: null,
+  })
+}
+
+// ─── Subtarefas ───────────────────────────────────────────────────
+
+export async function listSubtasks(missionId: string): Promise<Subtask[]> {
+  const { data, error } = await supabase
+    .from('subtasks')
+    .select('*')
+    .eq('mission_id', missionId)
+    .order('position', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Subtask[]
+}
+
+export async function createSubtask(
+  userId: string,
+  missionId: string,
+  title: string,
+  position: number,
+): Promise<Subtask> {
+  const { data, error } = await supabase
+    .from('subtasks')
+    .insert({ user_id: userId, mission_id: missionId, title, position })
+    .select()
+    .single()
+  if (error) throw error
+  return data as Subtask
+}
+
+export async function toggleSubtask(id: string, done: boolean): Promise<Subtask> {
+  const { data, error } = await supabase
+    .from('subtasks')
+    .update({ done })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data as Subtask
+}
+
+export async function deleteSubtask(id: string): Promise<void> {
+  const { error } = await supabase.from('subtasks').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── Tags ─────────────────────────────────────────────────────────
+
+export async function listTags(userId: string): Promise<Tag[]> {
+  const { data, error } = await supabase
+    .from('tags')
+    .select('*')
+    .eq('user_id', userId)
+    .order('name', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Tag[]
+}
+
+export async function createTag(userId: string, name: string, color: string): Promise<Tag> {
+  const { data, error } = await supabase
+    .from('tags')
+    .insert({ user_id: userId, name, color: color as import('../types/database').WorldAccent })
+    .select()
+    .single()
+  if (error) throw error
+  return data as Tag
+}
+
+export async function listMissionTags(missionId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('mission_tags')
+    .select('tag_id')
+    .eq('mission_id', missionId)
+  if (error) throw error
+  return (data ?? []).map((r: { tag_id: string }) => r.tag_id)
+}
+
+export async function setMissionTags(missionId: string, tagIds: string[]): Promise<void> {
+  await supabase.from('mission_tags').delete().eq('mission_id', missionId)
+  if (tagIds.length === 0) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.from('mission_tags') as any).insert(
+    tagIds.map((tag_id) => ({ mission_id: missionId, tag_id })),
+  )
+}
+
+// ─── Links ────────────────────────────────────────────────────────
+
+export async function listLinks(missionId: string): Promise<MissionLink[]> {
+  const { data, error } = await supabase
+    .from('mission_links')
+    .select('*')
+    .eq('mission_id', missionId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as MissionLink[]
+}
+
+export async function createLink(
+  userId: string,
+  missionId: string,
+  label: string,
+  url: string,
+): Promise<MissionLink> {
+  const { data, error } = await supabase
+    .from('mission_links')
+    .insert({ user_id: userId, mission_id: missionId, label, url })
+    .select()
+    .single()
+  if (error) throw error
+  return data as MissionLink
+}
+
+export async function deleteLink(id: string): Promise<void> {
+  const { error } = await supabase.from('mission_links').delete().eq('id', id)
+  if (error) throw error
+}
