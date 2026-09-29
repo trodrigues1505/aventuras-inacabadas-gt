@@ -61,7 +61,14 @@ export async function ensureCrewSeeded(userId: string): Promise<CrewAttributes[]
   const existing = await listCrewAttributes(userId)
   if (existing.length > 0) return existing
 
-  const { error } = await supabase.rpc('seed_crew_for_user', { p_user_id: userId })
+  // Cast necessário: types/database.ts declara Functions como
+  // Record<string, never> (nenhuma função tipada), então o TS
+  // infere os parâmetros de .rpc() como `undefined`. Isso não afeta
+  // a chamada em runtime — supabase.rpc só usa o nome e o objeto de
+  // parâmetros, que aqui estão corretos.
+  const { error } = await (supabase.rpc as any)('seed_crew_for_user', {
+    p_user_id: userId,
+  })
   if (error) throw error
 
   return listCrewAttributes(userId)
@@ -85,7 +92,8 @@ export async function growCrewAttribute(
   role: 'principal' | 'secundario' | 'terciario',
   basePoints = 1,
 ): Promise<void> {
-  const { error } = await supabase.rpc('grow_crew_attribute', {
+  // Mesmo motivo do cast em ensureCrewSeeded acima.
+  const { error } = await (supabase.rpc as any)('grow_crew_attribute', {
     p_user_id: userId,
     p_crew_id: crewId,
     p_attribute: attribute,
