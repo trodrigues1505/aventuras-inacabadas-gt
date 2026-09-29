@@ -84,16 +84,24 @@ export async function ensureCrewSeeded(userId: string): Promise<CrewAttributes[]
  * pelo Kanban comum via toggleMission. 'secundario' (60%) e
  * 'terciario' (30%) ficam prontos para desafios narrativos e missões
  * de bordo (Fases 5/6).
+ *
+ * Retorna o novo valor do atributo e se houve level-up nesta
+ * chamada — usado para dar feedback ao jogador (ver toggleMission).
  */
+export type GrowResult = { newValue: number; leveledUp: boolean }
+
 export async function growCrewAttribute(
   userId: string,
   crewId: CrewId,
   attribute: AttributeKey,
   role: 'principal' | 'secundario' | 'terciario',
   basePoints = 1,
-): Promise<void> {
-  // Mesmo motivo do cast em ensureCrewSeeded acima.
-  const { error } = await (supabase.rpc as any)('grow_crew_attribute', {
+): Promise<GrowResult> {
+  // Cast necessário: types/database.ts declara Functions como
+  // Record<string, never> (nenhuma função tipada), então o TS
+  // infere os parâmetros/retorno de .rpc() incorretamente. Isso não
+  // afeta a chamada em runtime.
+  const { data, error } = await (supabase.rpc as any)('grow_crew_attribute', {
     p_user_id: userId,
     p_crew_id: crewId,
     p_attribute: attribute,
@@ -101,4 +109,33 @@ export async function growCrewAttribute(
     p_base_points: basePoints,
   })
   if (error) throw error
+  // A RPC retorna table(new_value int, leveled_up boolean) — o
+  // client do Supabase entrega isso como array de 1 linha.
+  const row = Array.isArray(data) ? data[0] : data
+  return {
+    newValue: row?.new_value ?? 0,
+    leveledUp: Boolean(row?.leveled_up),
+  }
+}
+
+/**
+ * Cura um tripulante ferido via RPC (heal_crew_member), que debita
+ * créditos de player_state e limpa o ferimento atomicamente.
+ * Lança erro se o tripulante não estiver ferido ou se não houver
+ * créditos suficientes — nesses casos nada é alterado no banco.
+ */
+export async function healCrewMember(
+  userId: string,
+  crewId: CrewId,
+): Promise<{ cost: number; remainingCurrency: number }> {
+  const { data, error } = await (supabase.rpc as any)('heal_crew_member', {
+    p_user_id: userId,
+    p_crew_id: crewId,
+  })
+  if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  return {
+    cost: row?.cost ?? 0,
+    remainingCurrency: row?.remaining_currency ?? 0,
+  }
 }

@@ -4,7 +4,7 @@ import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/Bits'
 import { useAuth } from '../hooks/AuthProvider'
 import { useToast } from '../hooks/ToastProvider'
-import { setCrew, ensureCrewSeeded, type CrewAttributes } from '../services/crewService'
+import { setCrew, ensureCrewSeeded, healCrewMember, type CrewAttributes } from '../services/crewService'
 import { CREW, findCrew, ATTRIBUTE_LABEL, type CrewMember, type AttributeKey } from '../data/crew'
 import { ACCENT } from '../data/gameConfig'
 import type { WorldAccent } from '../types/database'
@@ -31,12 +31,21 @@ function timeRemaining(isoDate: string): string {
   return hours >= 1 ? `${hours}h ${minutes}min` : `${minutes}min`
 }
 
+/** Mesma fórmula da RPC heal_crew_member: 1 crédito por hora restante
+ *  (arredondado para cima, mín. 1) — só para exibir uma estimativa;
+ *  o custo real e definitivo é sempre calculado no servidor. */
+function healCostEstimate(isoDate: string): number {
+  const hoursRemaining = (new Date(isoDate).getTime() - Date.now()) / 3_600_000
+  return Math.max(1, Math.ceil(hoursRemaining))
+}
+
 export default function Crew() {
   const { session, playerState, applyPlayerState } = useAuth()
   const toast = useToast()
 
   const [confirming, setConfirming] = useState<CrewMember | null>(null)
   const [busy, setBusy] = useState(false)
+  const [healingId, setHealingId] = useState<string | null>(null)
   const [attributes, setAttributes] = useState<CrewAttributes[]>([])
 
   const current = findCrew(playerState?.crew_id ?? null)
@@ -83,6 +92,25 @@ export default function Crew() {
     else choose(member)
   }
 
+  async function heal(member: CrewMember) {
+    if (!session || !playerState) return
+    setHealingId(member.id)
+    try {
+      const { cost, remainingCurrency } = await healCrewMember(session.user.id, member.id)
+      setAttributes((list) =>
+        list.map((a) =>
+          a.crew_id === member.id ? { ...a, status: 'ok', injured_until: null } : a,
+        ),
+      )
+      applyPlayerState({ ...playerState, currency: remainingCurrency })
+      toast('reward', `${member.name} recuperado por ${cost} créditos.`)
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Não foi possível curar.')
+    } finally {
+      setHealingId(null)
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">
       <div className="mb-8">
@@ -108,7 +136,9 @@ export default function Crew() {
               busy={busy}
               delay={i * 45}
               attrs={attributesFor(member.id)}
+              healing={healingId === member.id}
               onPick={() => pick(member)}
+              onHeal={() => heal(member)}
             />
           )
         })}
@@ -134,7 +164,9 @@ function CrewCard({
   busy,
   delay,
   attrs,
+  healing,
   onPick,
+  onHeal,
 }: {
   member: CrewMember
   accent: (typeof ACCENT)[keyof typeof ACCENT]
@@ -142,8 +174,11 @@ function CrewCard({
   busy: boolean
   delay: number
   attrs: CrewAttributes | undefined
+  healing: boolean
   onPick: () => void
+  onHeal: () => void
 }) {
+  const isInjured = attrs?.status === 'injured' && Boolean(attrs.injured_until)
   return (
     <article
       className={`rise relative flex flex-col overflow-hidden rounded-[16px] border bg-surface transition-all duration-150 ${
@@ -189,7 +224,7 @@ function CrewCard({
             <h2 className="text-[16px] font-semibold text-text">{member.name}</h2>
             <p className={`text-[12px] font-medium ${accent.text}`}>{member.role}</p>
           </div>
-          {attrs?.status === 'injured' && attrs.injured_until && (
+          {isInjured && attrs?.injured_until && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bad/10 px-2 py-0.5 text-[11px] font-medium text-bad">
               <Heart size={10} aria-hidden />
               {timeRemaining(attrs.injured_until)}
@@ -245,15 +280,25 @@ function CrewCard({
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-4 flex gap-2">
           <Button
             variant={active ? 'secondary' : 'primary'}
             onClick={onPick}
             disabled={active || busy}
-            className="w-full"
+            className="flex-1"
           >
             {active ? 'No posto' : 'Chamar para a ponte'}
           </Button>
+          {isInjured && attrs?.injured_until && (
+            <Button
+              variant="secondary"
+              onClick={onHeal}
+              disabled={healing}
+              className="shrink-0"
+            >
+              Curar · {healCostEstimate(attrs.injured_until)}💳
+            </Button>
+          )}
         </div>
       </div>
     </article>

@@ -206,6 +206,9 @@ export type CompletionResult = {
   crewNote: string | null
   crewId: string | null    // para exibir portrait no toast
   planetNote: string | null
+  /** Fase 4 — preenchido só quando o atributo principal do tripulante
+   *  ativo sobe de nível ao concluir esta missão. */
+  attributeLevelUp: { crewId: string; attribute: string; newValue: number } | null
 }
 
 export async function toggleMission(
@@ -236,6 +239,7 @@ export async function toggleMission(
       crewNote: null,
       crewId: null,
       planetNote: null,
+      attributeLevelUp: null,
     }
   }
 
@@ -323,13 +327,26 @@ export async function toggleMission(
   // — a variação secundário/terciário é para desafios narrativos e
   // missões de bordo (Fases 5/6), que chamarão growCrewAttribute com
   // outro role diretamente de lá.
+  let attributeLevelUp: CompletionResult['attributeLevelUp'] = null
   if (applyRewards && state.crew_id) {
     const activeCrew = findCrew(state.crew_id)
     if (activeCrew) {
       // Não deixa uma falha aqui derrubar a conclusão da missão, que
       // já foi gravada com sucesso acima — só registra no console.
       try {
-        await growCrewAttribute(state.user_id, activeCrew.id, activeCrew.mainAttribute, 'principal')
+        const result = await growCrewAttribute(
+          state.user_id,
+          activeCrew.id,
+          activeCrew.mainAttribute,
+          'principal',
+        )
+        if (result.leveledUp) {
+          attributeLevelUp = {
+            crewId: activeCrew.id,
+            attribute: activeCrew.mainAttribute,
+            newValue: result.newValue,
+          }
+        }
       } catch (e) {
         console.error('Falha ao aplicar crescimento de atributo:', e)
       }
@@ -345,6 +362,7 @@ export async function toggleMission(
     crewNote: bonus.note,
     crewId: bonus.note ? state.crew_id : null,  // só passa portrait se teve bônus
     planetNote: planetBonus.note,
+    attributeLevelUp,
   }
 }
 
