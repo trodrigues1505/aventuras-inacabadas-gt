@@ -23,7 +23,10 @@ const ITEMS: Item[] = [
   { to: '/configuracoes', label: 'Configurações', icon: Settings,        ready: true },
 ]
 
-const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/configuracoes']
+// Fase 4: Tripulação adicionada ao menu mobile — grid passou de 5
+// para 6 colunas (ver <nav> no fim do arquivo) para caber sem
+// remover nenhuma rota existente.
+const MOBILE_ROUTES = ['/', '/planetas', '/galaxia', '/missoes', '/tripulacao', '/configuracoes']
 
 /* Título por rota — galáxia não usa o PageHeader (tem próprio visual dark) */
 const PAGE_META: Record<string, { title: string; sub: string }> = {
@@ -260,8 +263,10 @@ export default function AppShell() {
       </div>
 
       {/* ── Nav mobile ──────────────────────────── */}
+      {/* Fase 4: grid-cols-5 → grid-cols-6 para caber Tripulação sem
+          remover nenhuma rota existente do menu mobile. */}
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {mobile.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <NavLink to={to} end={to === '/'} className={({ isActive }) =>

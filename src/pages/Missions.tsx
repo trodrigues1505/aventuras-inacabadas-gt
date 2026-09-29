@@ -47,6 +47,7 @@ import {
   type MissionDraft,
 } from '../services/missionService'
 import { ACCENT, CREDITS_BY_PRIORITY, PRIORITY_LABEL, XP_BY_PRIORITY } from '../data/gameConfig'
+import { ATTRIBUTE_LABEL } from '../data/crew'
 import type { Mission, MissionLink, MissionStatus, MissionType, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
 
 type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string; sub: string; img: string }
@@ -159,6 +160,10 @@ export default function Missions() {
           toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
         } else if (result.xpGained > 0) {
           toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)
+        }
+        if (result.attributeLevelUp) {
+          const { attribute, newValue } = result.attributeLevelUp
+          toast('reward', `${ATTRIBUTE_LABEL[attribute as keyof typeof ATTRIBUTE_LABEL]} subiu para ${newValue}!`)
         }
       } catch (e) {
         toast('error', e instanceof Error ? e.message : 'Não foi possível concluir.')
@@ -324,6 +329,10 @@ export default function Missions() {
                         if (result.planetNote) toast('info', result.planetNote)
                         if (result.leveledUpTo) toast('reward', `Autonomia ${result.leveledUpTo}. A Andarilha alcança mais longe.`)
                         else if (result.xpGained > 0) toast('reward', `+${result.xpGained} XP · +${result.creditsGained} créditos`)
+                        if (result.attributeLevelUp) {
+                          const { attribute, newValue } = result.attributeLevelUp
+                          toast('reward', `${ATTRIBUTE_LABEL[attribute as keyof typeof ATTRIBUTE_LABEL]} subiu para ${newValue}!`)
+                        }
                       } catch (err) { toast('error', err instanceof Error ? err.message : 'Erro') }
                       finally { setPending(null) }
                     } else {
