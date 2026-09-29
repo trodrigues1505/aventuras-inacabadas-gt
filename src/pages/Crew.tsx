@@ -1,13 +1,32 @@
-import { useState } from 'react'
-import { Check, Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Heart, Sparkles, Star } from 'lucide-react'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/Bits'
 import { useAuth } from '../hooks/AuthProvider'
 import { useToast } from '../hooks/ToastProvider'
-import { setCrew } from '../services/crewService'
-import { CREW, findCrew, type CrewMember } from '../data/crew'
+import { setCrew, ensureCrewSeeded, type CrewAttributes } from '../services/crewService'
+import { CREW, findCrew, ATTRIBUTE_LABEL, type CrewMember, type AttributeKey } from '../data/crew'
 import { ACCENT } from '../data/gameConfig'
 import type { WorldAccent } from '../types/database'
+
+const ATTRIBUTE_ORDER: AttributeKey[] = ['for', 'agi', 'tec', 'int', 'inf', 'per']
+
+const LEVEL_THRESHOLDS: Record<number, number> = { 5: 10, 6: 20, 7: 35, 8: 55, 9: 80 }
+const NATURAL_CAP = 10
+
+function attributeProgress(value: number, xp: number): number {
+  const threshold = LEVEL_THRESHOLDS[value]
+  if (value >= NATURAL_CAP || !threshold) return 100
+  return Math.min(100, Math.round((xp / threshold) * 100))
+}
+
+function timeRemaining(isoDate: string): string {
+  const ms = new Date(isoDate).getTime() - Date.now()
+  if (ms <= 0) return 'pronto'
+  const hours = Math.floor(ms / 3_600_000)
+  const minutes = Math.floor((ms % 3_600_000) / 60_000)
+  return hours >= 1 ? `${hours}h ${minutes}min` : `${minutes}min`
+}
 
 export default function Crew() {
   const { session, playerState, applyPlayerState } = useAuth()
@@ -15,8 +34,29 @@ export default function Crew() {
 
   const [confirming, setConfirming] = useState<CrewMember | null>(null)
   const [busy, setBusy] = useState(false)
+  const [attributes, setAttributes] = useState<CrewAttributes[]>([])
 
   const current = findCrew(playerState?.crew_id ?? null)
+
+  useEffect(() => {
+    if (!session) return
+    let alive = true
+    ensureCrewSeeded(session.user.id)
+      .then((rows) => {
+        if (alive) setAttributes(rows)
+      })
+      .catch(() => {
+        // Fichas de atributo são um complemento visual desta tela — se
+        // a leitura falhar, a seleção de posto continua funcionando.
+      })
+    return () => {
+      alive = false
+    }
+  }, [session])
+
+  function attributesFor(id: string): CrewAttributes | undefined {
+    return attributes.find((a) => a.crew_id === id)
+  }
 
   async function choose(member: CrewMember) {
     if (!session || !playerState) return
@@ -63,6 +103,7 @@ export default function Crew() {
               active={active}
               busy={busy}
               delay={i * 45}
+              attrs={attributesFor(member.id)}
               onPick={() => pick(member)}
             />
           )
@@ -88,6 +129,7 @@ function CrewCard({
   active,
   busy,
   delay,
+  attrs,
   onPick,
 }: {
   member: CrewMember
@@ -95,6 +137,7 @@ function CrewCard({
   active: boolean
   busy: boolean
   delay: number
+  attrs: CrewAttributes | undefined
   onPick: () => void
 }) {
   return (
@@ -106,14 +149,12 @@ function CrewCard({
       }`}
       style={{ animationDelay: `${delay}ms` }}
     >
-      {/* Badge de ativo */}
       {active && (
         <span className="absolute right-3 top-3 z-10 grid size-6 place-items-center rounded-full bg-azure text-white shadow">
           <Check size={13} aria-hidden />
         </span>
       )}
 
-      {/* Retrato do personagem */}
       <div className={`relative h-[200px] overflow-hidden ${accent.soft}`}>
         <img
           src={`assets/crew/${member.id}.webp`}
@@ -126,7 +167,6 @@ function CrewCard({
             if (fallback) fallback.style.display = 'grid'
           }}
         />
-        {/* Fallback: iniciais enquanto imagem não carrega */}
         <span
           className={`absolute inset-0 hidden place-items-center text-[56px] font-semibold ${accent.text}`}
           aria-hidden
@@ -135,20 +175,24 @@ function CrewCard({
         </span>
       </div>
 
-      {/* Corpo */}
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-1 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-[16px] font-semibold text-text">{member.name}</h2>
             <p className={`text-[12px] font-medium ${accent.text}`}>{member.role}</p>
           </div>
+          {attrs?.status === 'injured' && attrs.injured_until && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-bad/10 px-2 py-0.5 text-[11px] font-medium text-bad">
+              <Heart size={10} aria-hidden />
+              {timeRemaining(attrs.injured_until)}
+            </span>
+          )}
         </div>
 
         <p className="mt-3 text-[13px] italic leading-relaxed text-muted">
           "{member.line}"
         </p>
 
-        {/* Bônus passivo */}
         <div className="mt-4 flex items-start gap-2 rounded-[10px] bg-raised px-3.5 py-3">
           <Sparkles size={13} className="mt-0.5 shrink-0 text-ember" aria-hidden />
           <div>
@@ -158,6 +202,37 @@ function CrewCard({
             <p className="text-[12px] leading-relaxed text-muted">{member.perk}</p>
           </div>
         </div>
+
+        {attrs && (
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5">
+            {ATTRIBUTE_ORDER.map((key) => {
+              const value = attrs[key]
+              const xp = attrs[`${key}_xp` as const]
+              const isMain = key === member.mainAttribute
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span
+                      className={`flex items-center gap-1 font-medium ${
+                        isMain ? accent.text : 'text-faint'
+                      }`}
+                    >
+                      {isMain && <Star size={9} className="fill-current" aria-hidden />}
+                      {ATTRIBUTE_LABEL[key]}
+                    </span>
+                    <span className="tabular-nums text-faint">{value}</span>
+                  </div>
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-raised">
+                    <div
+                      className={`h-full rounded-full ${isMain ? accent.bar : 'bg-faint/40'}`}
+                      style={{ width: `${attributeProgress(value, xp)}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         <div className="mt-4">
           <Button
