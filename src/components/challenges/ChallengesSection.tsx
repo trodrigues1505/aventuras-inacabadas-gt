@@ -209,7 +209,7 @@ function RetryNote({ retryAt }: { retryAt: string | null }) {
 
 /* ── Desafio de campo ────────────────────────────────────────── */
 
-function FieldCard({ c }: { c: FieldChallenge }) {
+export function FieldCard({ c }: { c: FieldChallenge }) {
   const { session, isAdmin } = useAuth()
   const { worlds } = useGame()
   const { reloadLists } = useChallenges()
@@ -271,7 +271,7 @@ function FieldCard({ c }: { c: FieldChallenge }) {
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
           <div className="min-w-0">
             <p className="text-[12px] text-white/70">
-              {world?.name ?? 'Planeta'} · desafio em campo
+              {world?.name ?? 'Planeta'} · desafio de campo
             </p>
             <h3 className="display truncate text-[19px] text-white">{c.title}</h3>
           </div>
@@ -307,7 +307,7 @@ function FieldCard({ c }: { c: FieldChallenge }) {
   )
 }
 
-/* ── Missão de bordo ─────────────────────────────────────────── */
+/* ── Desafio de bordo ────────────────────────────────────────── */
 
 function HullPips({ damage }: { damage: number }) {
   return (
@@ -328,7 +328,7 @@ function HullPips({ damage }: { damage: number }) {
   )
 }
 
-function BridgeCard({ b }: { b: BridgeMission }) {
+export function BridgeCard({ b }: { b: BridgeMission }) {
   const { session, isAdmin, playerState } = useAuth()
   const { fields, reloadLists } = useChallenges()
   const { worlds } = useGame()
@@ -365,7 +365,7 @@ function BridgeCard({ b }: { b: BridgeMission }) {
         const who = findCrew(r.injuredCrewId)
         toast('error', `Falha crítica: ${who?.name ?? r.injuredCrewId} ficou ferido por 72h.`, r.injuredCrewId)
       } else {
-        toast('info', `Casco danificado (${r.hullDamage} de 3). O desafio em campo perdeu 12h.`)
+        toast('info', `Casco danificado (${r.hullDamage} de 3). O desafio de campo perdeu 12h.`)
       }
       await reloadLists()
     } catch (e) {
@@ -394,9 +394,9 @@ function BridgeCard({ b }: { b: BridgeMission }) {
             <p className="text-[12px] text-white/70">
               {b.origin === 'linked'
                 ? linkedWorld
-                  ? `Rumo a ${linkedWorld.name} · missão de bordo`
-                  : 'Missão de bordo'
-                : 'Em trânsito · missão de bordo'}
+                  ? `Rumo a ${linkedWorld.name} · desafio de bordo`
+                  : 'Desafio de bordo'
+                : 'Em trânsito · desafio de bordo'}
             </p>
             <h3 className="display truncate text-[19px] text-white">{b.title}</h3>
           </div>

@@ -1,12 +1,13 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { GalaxyMap } from './GalaxyMap'
 import { ColonizeModal } from './ColonizeModal'
 import { useGalaxy } from '../../hooks/useGalaxy'
 import { useChallenges } from '../../hooks/ChallengeProvider'
-import type { FieldChallenge } from '../../types/challenges'
+import type { BridgeMission, FieldChallenge } from '../../types/challenges'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
-import { ChevronLeft, Lock, Target, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, Lock, Target, CheckCircle2, AlertTriangle, Rocket } from 'lucide-react'
 
 // Resolver slug para nome do arquivo de imagem
 // nyx no banco → nix nos banners antigos, nyx no esférico
@@ -134,10 +135,17 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
             ? <PlanetPanel
                 world={selectedWorld}
                 challenge={fields.find((c) => c.world_id === selectedWorld.id)}
+                bridge={bridges.find(
+                  (b) => b.challenge_id === fields.find((c) => c.world_id === selectedWorld.id)?.id,
+                )}
                 onBack={() => setSelectedWorld(null)}
                 onExplore={() => setColonizeTarget(selectedWorld)}
               />
-            : <EmptyPanel playerXP={playerXP} worlds={worlds}/>
+            : <EmptyPanel playerXP={playerXP} worlds={worlds}
+                active={[
+                  ...bridges.map((b) => ({ id: b.id, title: b.title, kind: 'bordo' as const })),
+                  ...fields.map((c) => ({ id: c.id, title: c.title, kind: 'campo' as const })),
+                ]}/>
           }
         </div>
       </div>
@@ -154,9 +162,10 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
 }
 
 // ─── Painel do planeta selecionado ────────────────────────────
-function PlanetPanel({ world, challenge, onBack, onExplore }: {
+function PlanetPanel({ world, challenge, bridge, onBack, onExplore }: {
   world: WorldWithStatus
   challenge?: FieldChallenge
+  bridge?: BridgeMission
   onBack: () => void
   onExplore: () => void
 }) {
@@ -272,16 +281,30 @@ function PlanetPanel({ world, challenge, onBack, onExplore }: {
 
         {/* Desafio de campo ativo (Fase 5) */}
         {challenge && (
-          <div className="flex items-start gap-2.5 rounded-xl p-3"
+          <Link to={`/desafio/${challenge.id}`}
+            className="flex items-start gap-2.5 rounded-xl p-3 transition-colors hover:brightness-125"
             style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.3)' }}>
             <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#f87171' }}/>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-white">{challenge.title}</p>
               <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(148,163,184,0.8)' }}>
-                Desafio ativo neste planeta. Os detalhes estão na Ponte.
+                Desafio de campo ativo. Toque para abrir.
               </p>
             </div>
-          </div>
+          </Link>
+        )}
+        {bridge && (
+          <Link to={`/desafio/${bridge.id}`}
+            className="flex items-start gap-2.5 rounded-xl p-3 transition-colors hover:brightness-125"
+            style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <Rocket size={14} className="mt-0.5 shrink-0" style={{ color: '#F59E0B' }}/>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white">{bridge.title}</p>
+              <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(148,163,184,0.8)' }}>
+                Desafio de bordo: a travessia até este planeta. Toque para abrir.
+              </p>
+            </div>
+          </Link>
         )}
 
         {/* Stats se explorado */}
@@ -335,7 +358,11 @@ function PlanetPanel({ world, challenge, onBack, onExplore }: {
 }
 
 // ─── Painel vazio ─────────────────────────────────────────────
-function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithStatus[] }) {
+function EmptyPanel({ playerXP, worlds, active }: {
+  playerXP: number
+  worlds: WorldWithStatus[]
+  active: { id: string; title: string; kind: 'campo' | 'bordo' }[]
+}) {
   const explored = worlds.filter(w => w.status === 'colonized')
 
   return (
@@ -343,6 +370,33 @@ function EmptyPanel({ playerXP, worlds }: { playerXP: number; worlds: WorldWithS
       <p className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.4)' }}>
         Selecione um planeta no mapa para ver detalhes e colonizá-lo.
       </p>
+
+      {active.length > 0 && (
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest"
+            style={{ color: 'rgba(148,163,184,0.3)' }}>Desafios ativos</p>
+          <div className="flex flex-col gap-1.5">
+            {active.map((a) => (
+              <Link key={a.id} to={`/desafio/${a.id}`}
+                className="flex items-center gap-2.5 rounded-lg p-2 transition-colors hover:brightness-125"
+                style={{
+                  background: a.kind === 'campo' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)',
+                  border: `1px solid ${a.kind === 'campo' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                }}>
+                {a.kind === 'campo'
+                  ? <AlertTriangle size={14} className="shrink-0" style={{ color: '#f87171' }}/>
+                  : <Rocket size={14} className="shrink-0" style={{ color: '#F59E0B' }}/>}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-white">{a.title}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                    Desafio de {a.kind}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {explored.length > 0 && (
         <div>

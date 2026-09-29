@@ -14,6 +14,7 @@ import Crew from './pages/Crew'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
 import Registro from './pages/Registro'
+import Challenge from './pages/Challenge'
 import { GalaxyScreen } from './components/galaxy'
 
 function GalaxyPage() {
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="/missoes"       element={<Missions />} />
             <Route path="/tripulacao"    element={<Crew />} />
             <Route path="/registro"      element={<Registro />} />
+            <Route path="/desafio/:id"   element={<Challenge />} />
             <Route path="/painel"        element={<Admin />} />
             <Route path="/configuracoes" element={<Settings />} />
           </Route>

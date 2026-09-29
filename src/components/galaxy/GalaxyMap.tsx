@@ -26,7 +26,7 @@ function worldToSVG(coordX: number, coordY: number): [number, number] {
 const HAS_SPHERE = new Set(['varda', 'thalassa', 'zerion', 'kestrel', 'nyx'])
 
 
-/** Fase 5 — missão de bordo pendente: rota da nave até o planeta (ou trânsito, se null). */
+/** Fase 5 — desafio de bordo pendente: rota da nave até o planeta (ou trânsito, se null). */
 export interface BridgeRoute {
   toWorldId: string | null
   intensity: number
@@ -219,7 +219,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId, al
           )
         })()}
 
-        {/* ── Rotas com missão de bordo pendente (Fase 5) ────── */}
+        {/* ── Rotas com desafio de bordo pendente (Fase 5) ────── */}
         {(() => {
           const home = worlds.find(w => w.status === 'colonized')
           if (!home || routes.length === 0) return null
@@ -240,7 +240,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId, al
                   </line>
                 )}
                 <g>
-                  <title>Missão de bordo pendente</title>
+                  <title>Desafio de bordo pendente</title>
                   <circle cx={mx} cy={my} r="9" fill="#1c1408" stroke="#F59E0B" strokeWidth="1.5"/>
                   <text x={mx} y={my + 3.5} textAnchor="middle" fill="#F59E0B"
                     fontSize="11" fontWeight="700" fontFamily="'Space Grotesk',sans-serif">!</text>
