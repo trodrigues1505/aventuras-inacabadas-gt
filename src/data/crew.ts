@@ -4,6 +4,18 @@ export type CrewId = 'dani' | 'aadan' | 'connor' | 'kira' | 'blanche' | 'iakop'
 
 export type Bonus = { xp: number; credits: number; note: string | null }
 
+/** Os 6 atributos do GDD (Fase 4). Chaves iguais às colunas da tabela `crew`. */
+export type AttributeKey = 'for' | 'agi' | 'tec' | 'int' | 'inf' | 'per'
+
+export const ATTRIBUTE_LABEL: Record<AttributeKey, string> = {
+  for: 'Força',
+  agi: 'Agilidade',
+  tec: 'Técnica',
+  int: 'Intelecto',
+  inf: 'Influência',
+  per: 'Percepção',
+}
+
 export type CrewMember = {
   id: CrewId
   name: string
@@ -15,6 +27,13 @@ export type CrewMember = {
   accent: string
   /** Iniciais enquanto não houver retrato. Trocar por <img> depois. */
   portrait: string
+  /**
+   * Atributo principal (ficha do GDD v4.0 — valor 5, único por
+   * personagem). É o que cresce em missões comuns do Kanban, sempre
+   * no multiplicador de 100% — ver grow_crew_attribute (SQL) e
+   * toggleMission (missionService.ts).
+   */
+  mainAttribute: AttributeKey
 }
 
 /**
@@ -32,6 +51,7 @@ export const CREW: CrewMember[] = [
     perk: 'Missoes de prioridade alta rendem +8 dados de exploracao.',
     accent: 'ember',
     portrait: 'DA',
+    mainAttribute: 'agi',
   },
   {
     id: 'aadan',
@@ -41,6 +61,7 @@ export const CREW: CrewMember[] = [
     perk: 'Todo credito recebido rende 20% a mais.',
     accent: 'azure',
     portrait: 'AA',
+    mainAttribute: 'for',
   },
   {
     id: 'connor',
@@ -50,6 +71,7 @@ export const CREW: CrewMember[] = [
     perk: 'Concluir dentro do prazo rende +6 dados de exploracao.',
     accent: 'good',
     portrait: 'CO',
+    mainAttribute: 'tec',
   },
   {
     id: 'kira',
@@ -59,6 +81,7 @@ export const CREW: CrewMember[] = [
     perk: 'Todos os dados de exploracao rendem 15% a mais.',
     accent: 'violet',
     portrait: 'KI',
+    mainAttribute: 'int',
   },
   {
     id: 'blanche',
@@ -68,6 +91,7 @@ export const CREW: CrewMember[] = [
     perk: 'A primeira missao concluida em cada planeta rende +12 dados.',
     accent: 'cyan',
     portrait: 'BL',
+    mainAttribute: 'per',
   },
   {
     id: 'iakop',
@@ -77,6 +101,7 @@ export const CREW: CrewMember[] = [
     perk: 'Toda missao concluida rende +3 creditos.',
     accent: 'bad',
     portrait: 'IA',
+    mainAttribute: 'inf',
   },
 ]
 
@@ -136,8 +161,6 @@ export function applyBonus(
 
     case 'blanche': {
       if (!mission.world_id) return none
-      // "Primeira do planeta" olha as outras: a missão atual ainda
-      // consta como aberta na lista em memória neste instante.
       const jaConcluida = allMissions.some(
         (m) =>
           m.world_id === mission.world_id &&
