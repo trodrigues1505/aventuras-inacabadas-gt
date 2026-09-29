@@ -22,7 +22,7 @@ const EMPTY: AdminSnapshot = { profiles: [], states: [], worlds: [], missions: [
 type Editing = { profile: Profile; state: PlayerState | null }
 
 export default function Admin() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, adminReady } = useAuth()
   const toast = useToast()
 
   const [snap, setSnap] = useState<AdminSnapshot>(EMPTY)
@@ -44,10 +44,6 @@ export default function Admin() {
       alive = false
     }
   }, [isAdmin, toast])
-
-  // A rota é fechada aqui e pelas policies no banco. Esta linha só
-  // evita desenhar uma tela vazia para quem não deveria vê-la.
-  if (!isAdmin) return <Navigate to="/" replace />
 
   const byUser = useMemo(() => {
     const states = new Map(snap.states.map((s) => [s.user_id, s]))
@@ -71,6 +67,20 @@ export default function Admin() {
     () => new Map(snap.worlds.map((w) => [w.id, `${w.icon} ${w.name}`])),
     [snap.worlds],
   )
+
+  // A rota é fechada aqui e pelas policies no banco. Esta linha só
+  // evita desenhar uma tela vazia para quem não deveria vê-la.
+  // Fica DEPOIS de todos os hooks (regra dos hooks) e só decide depois
+  // que o banco respondeu se é admin — senão recarregar em /painel
+  // redirecionaria antes da resposta chegar.
+  if (!adminReady) {
+    return (
+      <main className="mx-auto w-full max-w-5xl px-5 py-8 md:px-10 md:py-12">
+        <div className="h-52 animate-pulse rounded-[16px] bg-raised" aria-hidden />
+      </main>
+    )
+  }
+  if (!isAdmin) return <Navigate to="/" replace />
 
   async function saveUser(displayName: string, patch: {
     level: number

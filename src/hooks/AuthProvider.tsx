@@ -23,6 +23,8 @@ type AuthValue = {
   profile: Profile | null
   playerState: PlayerState | null
   isAdmin: boolean
+  /** false enquanto o banco ainda não respondeu se este usuário é admin. */
+  adminReady: boolean
   error: string | null
   retry: () => void
   signOut: () => Promise<void>
@@ -40,8 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [playerState, setPlayerState] = useState<PlayerState | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Confirmação pelo próprio banco (função is_admin()), para não depender só
-  // do e-mail embutido no build. Falha silenciosa: sem resposta, vale o e-mail.
-  const [dbAdmin, setDbAdmin] = useState(false)
+  // do e-mail embutido no build. Guarda de QUEM é a resposta: ao trocar de
+  // usuário, a resposta antiga nunca vale para o novo.
+  const [adminProbe, setAdminProbe] = useState<{ uid: string; admin: boolean } | null>(null)
+  const uid = session?.user.id ?? null
 
   // Evita recarregar o jogador a cada TOKEN_REFRESHED (que dispara a cada ~1h)
   // e a cada foco de aba: so recarrega quando o usuario muda de fato.
@@ -125,20 +129,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, attempt])
 
   useEffect(() => {
-    const uid = session?.user.id
-    if (!supabaseConfigured || !uid) {
-      setDbAdmin(false)
-      return
-    }
+    if (!supabaseConfigured || !uid) return
     let alive = true
     ;(async () => {
-      const { data, error: rpcError } = await (supabase.rpc as any)('is_admin')
-      if (alive) setDbAdmin(!rpcError && data === true)
+      let admin = false
+      try {
+        const { data, error: rpcError } = await (supabase.rpc as any)('is_admin')
+        admin = !rpcError && data === true
+      } catch {
+        admin = false // sem resposta: vale só o e-mail do build
+      }
+      if (alive) setAdminProbe({ uid, admin })
     })()
     return () => {
       alive = false
     }
-  }, [session?.user.id])
+  }, [uid])
+
+  const dbAdmin = adminProbe !== null && adminProbe.uid === uid && adminProbe.admin
+  const adminReady = !supabaseConfigured || !uid || adminProbe?.uid === uid
 
   const signOut = useCallback(async () => {
     await doSignOut()
@@ -179,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       playerState,
       isAdmin,
+      adminReady,
       error,
       retry,
       signOut,
@@ -191,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       playerState,
       isAdmin,
+      adminReady,
       error,
       retry,
       signOut,
