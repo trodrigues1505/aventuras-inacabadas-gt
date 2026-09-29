@@ -11,6 +11,9 @@ import type { WorldAccent } from '../types/database'
 
 const ATTRIBUTE_ORDER: AttributeKey[] = ['for', 'agi', 'tec', 'int', 'inf', 'per']
 
+// Pontos de XP para o próximo nível, no multiplicador de 100% —
+// mesma tabela usada na RPC grow_crew_attribute (SQL). Só para
+// desenhar a barra de progresso; o cálculo que vale é o do banco.
 const LEVEL_THRESHOLDS: Record<number, number> = { 5: 10, 6: 20, 7: 35, 8: 55, 9: 80 }
 const NATURAL_CAP = 10
 
@@ -47,7 +50,8 @@ export default function Crew() {
       })
       .catch(() => {
         // Fichas de atributo são um complemento visual desta tela — se
-        // a leitura falhar, a seleção de posto continua funcionando.
+        // a leitura falhar, a seleção de posto (funcionalidade principal
+        // desta página) continua funcionando normalmente sem elas.
       })
     return () => {
       alive = false
@@ -149,12 +153,14 @@ function CrewCard({
       }`}
       style={{ animationDelay: `${delay}ms` }}
     >
+      {/* Badge de ativo */}
       {active && (
         <span className="absolute right-3 top-3 z-10 grid size-6 place-items-center rounded-full bg-azure text-white shadow">
           <Check size={13} aria-hidden />
         </span>
       )}
 
+      {/* Retrato do personagem */}
       <div className={`relative h-[200px] overflow-hidden ${accent.soft}`}>
         <img
           src={`assets/crew/${member.id}.webp`}
@@ -167,6 +173,7 @@ function CrewCard({
             if (fallback) fallback.style.display = 'grid'
           }}
         />
+        {/* Fallback: iniciais enquanto imagem não carrega */}
         <span
           className={`absolute inset-0 hidden place-items-center text-[56px] font-semibold ${accent.text}`}
           aria-hidden
@@ -175,6 +182,7 @@ function CrewCard({
         </span>
       </div>
 
+      {/* Corpo */}
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-1 flex items-start justify-between gap-2">
           <div>
@@ -193,6 +201,7 @@ function CrewCard({
           "{member.line}"
         </p>
 
+        {/* Bônus passivo */}
         <div className="mt-4 flex items-start gap-2 rounded-[10px] bg-raised px-3.5 py-3">
           <Sparkles size={13} className="mt-0.5 shrink-0 text-ember" aria-hidden />
           <div>
@@ -203,6 +212,8 @@ function CrewCard({
           </div>
         </div>
 
+        {/* Atributos — Fase 4. Se a ficha ainda não carregou, o card
+            continua funcional sem esta seção (ver comentário no fetch). */}
         {attrs && (
           <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5">
             {ATTRIBUTE_ORDER.map((key) => {

@@ -161,6 +161,8 @@ export function applyBonus(
 
     case 'blanche': {
       if (!mission.world_id) return none
+      // "Primeira do planeta" olha as outras: a missão atual ainda
+      // consta como aberta na lista em memória neste instante.
       const jaConcluida = allMissions.some(
         (m) =>
           m.world_id === mission.world_id &&

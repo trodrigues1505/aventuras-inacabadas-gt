@@ -19,7 +19,8 @@ import {
   MISSION_TYPE_RESOURCE,
   getXpRequiredForLevel,
 } from '../data/gameConfig'
-import { applyBonus } from '../data/crew'
+import { applyBonus, findCrew } from '../data/crew'
+import { growCrewAttribute } from './crewService'
 
 // ─── Tipos de rascunho ────────────────────────────────────────────
 
@@ -313,6 +314,27 @@ export async function toggleMission(
 
   // Incrementar contador de missões concluídas do planeta
   await incrementPlanetCounter(mission.world_id, state.user_id, 'missions_won')
+
+  // Fase 4 — crescimento de atributo do tripulante ativo.
+  // Mesma regra de applyRewards: só cresce na primeira vez que a
+  // missão vai para 'done' (não em reaberturas nem em re-conclusões
+  // já registradas em completed_at). Em missões comuns do Kanban só
+  // o atributo PRINCIPAL do tripulante ativo ganha XP, sempre a 100%
+  // — a variação secundário/terciário é para desafios narrativos e
+  // missões de bordo (Fases 5/6), que chamarão growCrewAttribute com
+  // outro role diretamente de lá.
+  if (applyRewards && state.crew_id) {
+    const activeCrew = findCrew(state.crew_id)
+    if (activeCrew) {
+      // Não deixa uma falha aqui derrubar a conclusão da missão, que
+      // já foi gravada com sucesso acima — só registra no console.
+      try {
+        await growCrewAttribute(state.user_id, activeCrew.id, activeCrew.mainAttribute, 'principal')
+      } catch (e) {
+        console.error('Falha ao aplicar crescimento de atributo:', e)
+      }
+    }
+  }
 
   return {
     mission: missionResult.data as Mission,
