@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
+import { useChallenges } from '../hooks/ChallengeProvider'
 import { BRAND } from '../data/brand'
 import { getXpRequiredForLevel } from '../data/gameConfig'
 
@@ -67,7 +68,7 @@ export function Avatar({ url, name, size = 32 }: { url?: string | null; name?: s
 
 /* ── SideLink ────────────────────────────────────────────────── */
 
-function SideLink({ item }: { item: Item }) {
+function SideLink({ item, alerts = 0 }: { item: Item; alerts?: number }) {
   if (!item.ready) return (
     <span className="flex cursor-not-allowed items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13.5px] text-hull-faint opacity-40">
       <item.icon size={15} aria-hidden />{item.label}
@@ -81,6 +82,12 @@ function SideLink({ item }: { item: Item }) {
         }`
       }>
       <item.icon size={15} aria-hidden />{item.label}
+      {alerts > 0 && (
+        <span className="ml-auto grid min-w-[18px] place-items-center rounded-full bg-bad px-1.5 text-[10.5px] font-semibold leading-[18px] text-white"
+          title={`${alerts} em andamento`}>
+          {alerts}
+        </span>
+      )}
     </NavLink>
   )
 }
@@ -213,6 +220,8 @@ function PageHeader({ pathname }: { pathname: string }) {
 export default function AppShell() {
   const { profile, isAdmin } = useAuth()
   const { worlds } = useGame()
+  const { fields, bridges } = useChallenges()
+  const alertCount = fields.length + bridges.length
   const location = useLocation()
   const items = ITEMS.filter((i) => !i.adminOnly || isAdmin)
   const mobile = items.filter((i) => MOBILE_ROUTES.includes(i.to))
@@ -240,7 +249,10 @@ export default function AppShell() {
         </div>
 
         <nav className="relative z-10 flex flex-col gap-1">
-          {items.map((item) => <SideLink key={item.to} item={item} />)}
+          {items.map((item) => (
+            <SideLink key={item.to} item={item}
+              alerts={item.to === '/' || item.to === '/galaxia' ? alertCount : 0} />
+          ))}
         </nav>
 
         <div className="relative z-10 mt-auto flex items-center gap-3 px-2 py-1.5">
@@ -271,7 +283,15 @@ export default function AppShell() {
             <li key={to}>
               <NavLink to={to} end={to === '/'} className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-3 text-[11px] transition-colors duration-150 ${isActive ? 'text-azure' : 'text-faint hover:text-text'}`
-              }><Icon size={18} aria-hidden />{label}</NavLink>
+              }>
+                <span className="relative">
+                  <Icon size={18} aria-hidden />
+                  {alertCount > 0 && (to === '/' || to === '/galaxia') && (
+                    <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-bad" aria-hidden />
+                  )}
+                </span>
+                {label}
+              </NavLink>
             </li>
           ))}
         </ul>

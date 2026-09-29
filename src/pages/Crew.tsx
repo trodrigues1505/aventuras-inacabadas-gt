@@ -31,12 +31,18 @@ function timeRemaining(isoDate: string): string {
   return hours >= 1 ? `${hours}h ${minutes}min` : `${minutes}min`
 }
 
-/** Mesma fórmula da RPC heal_crew_member: 1 crédito por hora restante
- *  (arredondado para cima, mín. 1) — só para exibir uma estimativa;
- *  o custo real e definitivo é sempre calculado no servidor. */
-function healCostEstimate(isoDate: string): number {
-  const hoursRemaining = (new Date(isoDate).getTime() - Date.now()) / 3_600_000
-  return Math.max(1, Math.ceil(hoursRemaining))
+// Espelha a RPC heal_crew_member: horas arredondadas para cima; abaixo de
+// 6h o ferimento "recupera sozinho" e a cura é recusada; senão ceil(2·√h)
+// (72h→17 · 48h→14 · 24h→10 · 12h→7 · 6h→5). Só para exibir — o custo
+// real e definitivo é sempre calculado no servidor.
+const MIN_HEAL_HOURS = 6
+
+function hoursRemaining(isoDate: string): number {
+  return Math.ceil((new Date(isoDate).getTime() - Date.now()) / 3_600_000)
+}
+
+function healCostEstimate(hours: number): number {
+  return Math.ceil(2 * Math.sqrt(hours))
 }
 
 export default function Crew() {
@@ -178,7 +184,12 @@ function CrewCard({
   onPick: () => void
   onHeal: () => void
 }) {
-  const isInjured = attrs?.status === 'injured' && Boolean(attrs.injured_until)
+  // Ferimento já vencido não conta: o banco só limpa o status no próximo sync.
+  const isInjured =
+    attrs?.status === 'injured' &&
+    attrs.injured_until != null &&
+    new Date(attrs.injured_until).getTime() > Date.now()
+  const healHours = isInjured && attrs?.injured_until ? hoursRemaining(attrs.injured_until) : 0
   return (
     <article
       className={`rise relative flex flex-col overflow-hidden rounded-[16px] border bg-surface transition-all duration-150 ${
@@ -289,16 +300,26 @@ function CrewCard({
           >
             {active ? 'No posto' : 'Chamar para a ponte'}
           </Button>
-          {isInjured && attrs?.injured_until && (
-            <Button
-              variant="secondary"
-              onClick={onHeal}
-              disabled={healing}
-              className="shrink-0"
-            >
-              Curar · {healCostEstimate(attrs.injured_until)}💳
-            </Button>
-          )}
+          {isInjured &&
+            (healHours >= MIN_HEAL_HOURS ? (
+              <Button
+                variant="secondary"
+                onClick={onHeal}
+                disabled={healing}
+                className="shrink-0"
+              >
+                Curar · {healCostEstimate(healHours)}💳
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                disabled
+                className="shrink-0"
+                title="Recupera sozinho em breve — a cura só compensa acima de 6h"
+              >
+                Recupera em {healHours}h
+              </Button>
+            ))}
         </div>
       </div>
     </article>

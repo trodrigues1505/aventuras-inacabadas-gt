@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { GalaxyMap } from './GalaxyMap'
 import { ColonizeModal } from './ColonizeModal'
 import { useGalaxy } from '../../hooks/useGalaxy'
+import { useChallenges } from '../../hooks/ChallengeProvider'
+import type { FieldChallenge } from '../../types/challenges'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
-import { ChevronLeft, Lock, Target, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, Lock, Target, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 // Resolver slug para nome do arquivo de imagem
 // nyx no banco → nix nos banners antigos, nyx no esférico
@@ -22,6 +24,17 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
   const { worlds, loading, error, colonize, refreshWorlds } = useGalaxy(playerXP)
   const [selectedWorld, setSelectedWorld] = useState<WorldWithStatus | null>(null)
   const [exploreTarget, setColonizeTarget] = useState<WorldWithStatus | null>(null)
+  const { fields, bridges } = useChallenges()
+
+  // Fase 5 — o que o mapa precisa saber: planetas em alerta e rotas de bordo.
+  const alerts: Record<string, number> = {}
+  for (const c of fields) alerts[c.world_id] = c.intensity
+  const routes = bridges.map((b) => ({
+    toWorldId: b.challenge_id
+      ? (fields.find((c) => c.id === b.challenge_id)?.world_id ?? null)
+      : null,
+    intensity: b.intensity,
+  }))
 
   const exploredCount = worlds.filter(w => w.status === 'colonized').length
   const availableCount = worlds.filter(w => w.status === 'available').length
@@ -109,6 +122,8 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
             playerXP={playerXP}
             onSelectWorld={w => setSelectedWorld(w)}
             selectedWorldId={selectedWorld?.id}
+            alerts={alerts}
+            routes={routes}
           />
         </div>
 
@@ -118,6 +133,7 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
           {selectedWorld
             ? <PlanetPanel
                 world={selectedWorld}
+                challenge={fields.find((c) => c.world_id === selectedWorld.id)}
                 onBack={() => setSelectedWorld(null)}
                 onExplore={() => setColonizeTarget(selectedWorld)}
               />
@@ -138,8 +154,9 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
 }
 
 // ─── Painel do planeta selecionado ────────────────────────────
-function PlanetPanel({ world, onBack, onExplore }: {
+function PlanetPanel({ world, challenge, onBack, onExplore }: {
   world: WorldWithStatus
+  challenge?: FieldChallenge
   onBack: () => void
   onExplore: () => void
 }) {
@@ -250,6 +267,20 @@ function PlanetPanel({ world, onBack, onExplore }: {
             <p className="mt-1 text-[10px]" style={{ color: 'rgba(148,163,184,0.5)' }}>
               Ideal: {world.ideal_category}
             </p>
+          </div>
+        )}
+
+        {/* Desafio de campo ativo (Fase 5) */}
+        {challenge && (
+          <div className="flex items-start gap-2.5 rounded-xl p-3"
+            style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#f87171' }}/>
+            <div>
+              <p className="text-xs font-semibold text-white">{challenge.title}</p>
+              <p className="mt-0.5 text-[11px]" style={{ color: 'rgba(148,163,184,0.8)' }}>
+                Desafio ativo neste planeta. Os detalhes estão na Ponte.
+              </p>
+            </div>
           </div>
         )}
 

@@ -3,6 +3,7 @@ import { ArrowRight, Globe2, Radar, Sparkles, Target, TrendingUp, Users } from '
 import { useMemo } from 'react'
 import { Avatar } from '../layouts/AppShell'
 import { EmptyState } from '../components/Bits'
+import { ChallengesSection } from '../components/challenges/ChallengesSection'
 import { useAuth } from '../hooks/AuthProvider'
 import { useGame } from '../hooks/GameProvider'
 import { ACCENT } from '../data/gameConfig'
@@ -84,6 +85,8 @@ export default function Dashboard() {
           <ArrowRight size={15} className="shrink-0 text-azure" aria-hidden />
         </Link>
       )}
+
+      <ChallengesSection />
 
       <div className="rise mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: '60ms' }}>
         <StatCard icon={Globe2}     label="Planetas"  value={worlds.length}                                note="mapeados" />

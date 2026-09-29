@@ -26,14 +26,23 @@ function worldToSVG(coordX: number, coordY: number): [number, number] {
 const HAS_SPHERE = new Set(['varda', 'thalassa', 'zerion', 'kestrel', 'nyx'])
 
 
+/** Fase 5 — missão de bordo pendente: rota da nave até o planeta (ou trânsito, se null). */
+export interface BridgeRoute {
+  toWorldId: string | null
+  intensity: number
+}
+
 interface GalaxyMapProps {
   worlds: WorldWithStatus[]
   playerXP: number
   onSelectWorld: (world: WorldWithStatus) => void
   selectedWorldId?: string
+  /** Fase 5 — id do planeta → intensidade (1–3) do desafio de campo ativo. */
+  alerts?: Record<string, number>
+  routes?: BridgeRoute[]
 }
 
-export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: GalaxyMapProps) {
+export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId, alerts = {}, routes = [] }: GalaxyMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   return (
@@ -210,6 +219,37 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
           )
         })()}
 
+        {/* ── Rotas com missão de bordo pendente (Fase 5) ────── */}
+        {(() => {
+          const home = worlds.find(w => w.status === 'colonized')
+          if (!home || routes.length === 0) return null
+          const [hx, hy] = worldToSVG(home.coord_x, home.coord_y)
+          return routes.map((r, i) => {
+            const target = r.toWorldId ? worlds.find(w => w.id === r.toWorldId) : undefined
+            const sameSpot = !target || target.id === home.id
+            const [tx, ty] = target && !sameSpot ? worldToSVG(target.coord_x, target.coord_y) : [hx, hy]
+            // Sem trajeto a desenhar (trânsito ou planeta-base): marcador junto da nave.
+            const mx = sameSpot ? hx + 40 + i * 24 : (hx + tx) / 2
+            const my = sameSpot ? hy - 30 : (hy + ty) / 2
+            return (
+              <g key={`route-${i}`}>
+                {!sameSpot && (
+                  <line x1={hx} y1={hy} x2={tx} y2={ty}
+                    stroke="#F59E0B" strokeWidth="1.5" strokeDasharray="6 6" opacity="0.75">
+                    <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="1.4s" repeatCount="indefinite"/>
+                  </line>
+                )}
+                <g>
+                  <title>Missão de bordo pendente</title>
+                  <circle cx={mx} cy={my} r="9" fill="#1c1408" stroke="#F59E0B" strokeWidth="1.5"/>
+                  <text x={mx} y={my + 3.5} textAnchor="middle" fill="#F59E0B"
+                    fontSize="11" fontWeight="700" fontFamily="'Space Grotesk',sans-serif">!</text>
+                </g>
+              </g>
+            )
+          })
+        })()}
+
         {/* ── Planetas ───────────────────────────────────────── */}
         {worlds.map(w => {
           const [px, py] = worldToSVG(w.coord_x, w.coord_y)
@@ -263,6 +303,20 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
                     from={`0 ${px} ${py}`} to={`360 ${px} ${py}`}
                     dur="18s" repeatCount="indefinite"/>
                 </circle>
+              )}
+
+              {/* Desafio de campo ativo (Fase 5) */}
+              {alerts[w.id] != null && (
+                <g pointerEvents="none">
+                  <circle cx={px} cy={py} r={pr + 9} fill="none"
+                    stroke="#ef4444" strokeWidth="1.5" opacity="0.8">
+                    <animate attributeName="r" values={`${pr + 8};${pr + 14};${pr + 8}`} dur="1.8s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.8s" repeatCount="indefinite"/>
+                  </circle>
+                  <circle cx={px + pr * 0.78} cy={py - pr * 0.78} r="8" fill="#ef4444"/>
+                  <text x={px + pr * 0.78} y={py - pr * 0.78 + 3.5} textAnchor="middle" fill="#fff"
+                    fontSize="11" fontWeight="700" fontFamily="'Space Grotesk',sans-serif">!</text>
+                </g>
               )}
 
               {/* Corpo do planeta */}
@@ -352,6 +406,7 @@ export function GalaxyMap({ worlds, playerXP, onSelectWorld, selectedWorldId }: 
             { color: '#F59E0B', label: 'Explorado' },
             { color: '#2DD4BF', label: 'Disponível' },
             { color: 'rgba(148,163,184,0.28)', label: 'Bloqueado' },
+            { color: '#ef4444', label: 'Desafio ativo' },
           ].map(({ color, label }, i) => (
             <g key={label} transform={`translate(${i * 110}, 0)`}>
               <circle cx="5" cy="5" r="3.5" fill={color}/>

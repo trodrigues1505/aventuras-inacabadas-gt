@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './hooks/AuthProvider'
 import { GameProvider } from './hooks/GameProvider'
+import { ChallengeProvider } from './hooks/ChallengeProvider'
 import { FullScreenLoader } from './components/FullScreenLoader'
 import { Notice } from './components/Notice'
 import { Button } from './components/Button'
@@ -59,19 +60,21 @@ export default function App() {
 
   return (
     <GameProvider>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/"              element={<Dashboard />} />
-          <Route path="/planetas"      element={<Planets />} />
-          <Route path="/galaxia"       element={<GalaxyPage />} />
-          <Route path="/missoes"       element={<Missions />} />
-          <Route path="/tripulacao"    element={<Crew />} />
-          <Route path="/registro"      element={<Registro />} />
-          <Route path="/painel"        element={<Admin />} />
-          <Route path="/configuracoes" element={<Settings />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ChallengeProvider>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/"              element={<Dashboard />} />
+            <Route path="/planetas"      element={<Planets />} />
+            <Route path="/galaxia"       element={<GalaxyPage />} />
+            <Route path="/missoes"       element={<Missions />} />
+            <Route path="/tripulacao"    element={<Crew />} />
+            <Route path="/registro"      element={<Registro />} />
+            <Route path="/painel"        element={<Admin />} />
+            <Route path="/configuracoes" element={<Settings />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ChallengeProvider>
     </GameProvider>
   )
 }
