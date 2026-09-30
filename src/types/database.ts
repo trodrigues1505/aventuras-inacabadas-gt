@@ -18,7 +18,7 @@ export type PlayerState = {
   suprimentos: number
   dados: number
   pulsos: number
-  /** Fase 5 — dano ao casco por falha em missão de bordo (0 a 3). */
+  /** Fase 5 — dano ao casco por falha em desafio de bordo (0 a 3). */
   hull_damage: number
   created_at: string
   updated_at: string

@@ -1,5 +1,5 @@
 // ============================================================
-// FASE 5 — catálogo e parâmetros dos desafios
+// FASE 5/6 — catálogo e parâmetros dos desafios
 //
 // Tudo que é "número de balanceamento" mora em CHALLENGE_CONFIG:
 // mexer no ritmo do jogo é mexer num objeto só.
@@ -33,14 +33,59 @@ export const CHALLENGE_CONFIG = {
   costWindowDays: 14,
   costMinAmount: 4,
 
-  /** Missão de bordo vinculada nasce quando o desafio de campo tem esta intensidade ou mais. */
+  /** Desafio de bordo vinculado nasce quando o desafio de campo tem esta intensidade ou mais. */
   bridgeLinkedMinIntensity: 2,
 
-  /** Missão de bordo independente: total de vencidas (todos os planetas) para disparar. */
+  /** Desafio de bordo independente: total de vencidas (todos os planetas) para disparar. */
   bridgeIndependentMinOverdue: 5,
   bridgeIndependentCooldownHours: 72,
   bridgeIndependentExpiresHours: 96,
 } as const
+
+// ─── Fase 6 — expedições e rolagem ───────────────────────────────
+//
+// ATENÇÃO: os números marcados "espelha o SQL" existem também em
+// supabase fase6.sql. O servidor é quem vale; aqui servem só para
+// mostrar a prévia (chance, custo, recompensa) ao jogador.
+
+export const EXPEDITION_CONFIG = {
+  /** Sucessos exigidos por nó = 2 + intensidade (3 · 4 · 5).            [espelha o SQL] */
+  requiredBase: 2,
+  /** Um sucesso = dado de 4, 5 ou 6.                                      [espelha o SQL] */
+  successFrom: 4,
+  /** Horas fora após ferimento grave.                                     [espelha o SQL] */
+  injuryHours: 72,
+  /** Recompensa total do sucesso = valor × intensidade; nó falho paga 50%. [espelha o SQL] */
+  reward: { xp: 20, credits: 10, resource: 6 },
+  /** Falha da expedição: espera antes de tentar de novo.                  [espelha o SQL] */
+  retryHours: 24,
+  /** Falha da expedição: o planeta fica afetado.                          [espelha o SQL] */
+  planetAffectedHours: 48,
+  planetAffectedXpPenalty: 0.15,
+  /** Piso do custo em recursos.                                           [espelha o SQL] */
+  costFloor: 4,
+} as const
+
+/** Forma da trilha por intensidade: [mín, máx] de nós.  [espelha o SQL] */
+export const TRAIL_NODES: Record<number, [number, number]> = {
+  1: [5, 6],
+  2: [7, 8],
+  3: [8, 10],
+}
+
+/** Chance de ligar dois nós de colunas vizinhas além do mínimo (mais opções de caminho). */
+export const TRAIL_CROSS_LINK_CHANCE = 0.35
+
+/** Reparo do casco, um ponto por vez, do topo: 3→2 = 40 · 2→1 = 25 · 1→0 = 15. [espelha o SQL] */
+export const HULL_REPAIR_COST: Record<number, number> = { 1: 15, 2: 25, 3: 40 }
+
+/** Recurso de trânsito pago ao vencer um desafio de bordo (a calibrar). [espelha o SQL] */
+export const BRIDGE_RESOURCE: Record<BridgeApproachKey, ResourceKey> = {
+  manobra: 'pulsos',
+  navegacao: 'dados',
+  pilotagem: 'suprimentos',
+}
+export const BRIDGE_REWARD_PER_INTENSITY = 3
 
 // ─── Abordagens de campo ─────────────────────────────────────────
 

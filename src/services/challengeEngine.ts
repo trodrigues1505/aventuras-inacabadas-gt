@@ -10,7 +10,7 @@ import type { Mission, World } from '../types/database'
 import { localDateISO } from '../lib/date'
 import type {
   ApproachOption,
-  BridgeMission,
+  BridgeChallenge,
   BridgeSpawn,
   FieldChallenge,
   FieldSpawn,
@@ -178,7 +178,7 @@ export type PlanInput = {
   missions: Mission[]
   /** Desafios recentes de qualquer status (o cooldown olha os encerrados). */
   challenges: FieldChallenge[]
-  bridges: BridgeMission[]
+  bridges: BridgeChallenge[]
   now?: Date
   rng?: Rng
 }
@@ -244,13 +244,13 @@ function planIndependentBridge({
 }: {
   worlds: World[]
   missions: Mission[]
-  bridges: BridgeMission[]
+  bridges: BridgeChallenge[]
   now: Date
   rng: Rng
 }): BridgeSpawn | null {
   const independent = bridges.filter((b) => b.origin === 'independent')
   if (independent.some((b) => b.status === 'active')) return null
-  const last = independent.reduce<BridgeMission | null>(
+  const last = independent.reduce<BridgeChallenge | null>(
     (best, b) => (!best || b.created_at > best.created_at ? b : best),
     null,
   )

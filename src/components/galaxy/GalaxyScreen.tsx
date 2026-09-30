@@ -4,7 +4,7 @@ import { GalaxyMap } from './GalaxyMap'
 import { ColonizeModal } from './ColonizeModal'
 import { useGalaxy } from '../../hooks/useGalaxy'
 import { useChallenges } from '../../hooks/ChallengeProvider'
-import type { BridgeMission, FieldChallenge } from '../../types/challenges'
+import type { BridgeChallenge, FieldChallenge } from '../../types/challenges'
 import type { WorldWithStatus } from '../../types/galaxy'
 import { REGION_META } from '../../types/galaxy'
 import { ChevronLeft, Lock, Target, CheckCircle2, AlertTriangle, Rocket } from 'lucide-react'
@@ -165,7 +165,7 @@ export function GalaxyScreen({ playerXP }: GalaxyScreenProps) {
 function PlanetPanel({ world, challenge, bridge, onBack, onExplore }: {
   world: WorldWithStatus
   challenge?: FieldChallenge
-  bridge?: BridgeMission
+  bridge?: BridgeChallenge
   onBack: () => void
   onExplore: () => void
 }) {

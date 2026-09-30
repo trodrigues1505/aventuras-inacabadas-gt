@@ -13,20 +13,20 @@ import { useGame } from './GameProvider'
 import { CHALLENGE_CONFIG } from '../data/challenges'
 import { planSpawns } from '../services/challengeEngine'
 import {
-  listBridgeMissions,
+  listBridgeChallenges,
   listFieldChallenges,
-  spawnBridgeMission,
+  spawnBridgeChallenge,
   spawnFieldChallenge,
   syncGameState,
 } from '../services/challengeService'
-import type { BridgeMission, FieldChallenge } from '../types/challenges'
+import type { BridgeChallenge, FieldChallenge } from '../types/challenges'
 
 type ChallengeValue = {
   loading: boolean
   /** Desafios de campo ativos e dentro do prazo. */
   fields: FieldChallenge[]
-  /** Missões de bordo ativas e dentro do prazo. */
-  bridges: BridgeMission[]
+  /** Desafios de bordo ativos e dentro do prazo. */
+  bridges: BridgeChallenge[]
   /** Relê as duas listas do banco (sem reavaliar o gatilho). */
   reloadLists: () => Promise<void>
 }
@@ -49,7 +49,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
 
   const [loading, setLoading] = useState(true)
   const [allFields, setAllFields] = useState<FieldChallenge[]>([])
-  const [allBridges, setAllBridges] = useState<BridgeMission[]>([])
+  const [allBridges, setAllBridges] = useState<BridgeChallenge[]>([])
 
   const live = useRef({ worlds, missions, level: playerState?.level ?? 1 })
   live.current = { worlds, missions, level: playerState?.level ?? 1 }
@@ -58,7 +58,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
     if (!userId) return
     const [f, b] = await Promise.all([
       listFieldChallenges(userId),
-      listBridgeMissions(userId),
+      listBridgeChallenges(userId),
     ])
     setAllFields(f)
     setAllBridges(b)
@@ -79,7 +79,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
         await syncGameState()
         const [f, b] = await Promise.all([
           listFieldChallenges(userId),
-          listBridgeMissions(userId),
+          listBridgeChallenges(userId),
         ])
 
         const { worlds: ws, missions: ms, level } = live.current
@@ -87,9 +87,9 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
           const plan = planSpawns({ worlds: ws, missions: ms, challenges: f, bridges: b })
           for (const spawn of plan.fields) {
             const id = await spawnFieldChallenge(spawn)
-            if (id && spawn.bridge) await spawnBridgeMission(id, spawn.bridge)
+            if (id && spawn.bridge) await spawnBridgeChallenge(id, spawn.bridge)
           }
-          if (plan.independentBridge) await spawnBridgeMission(null, plan.independentBridge)
+          if (plan.independentBridge) await spawnBridgeChallenge(null, plan.independentBridge)
         }
 
         // Relê depois de criar: as RPCs devolvem só o id, e a lista tem de

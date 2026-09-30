@@ -21,6 +21,7 @@ import {
   getXpRequiredForLevel,
 } from '../data/gameConfig'
 import { applyBonus, findCrew } from '../data/crew'
+import { EXPEDITION_CONFIG } from '../data/challenges'
 import { growCrewAttribute } from './crewService'
 
 // ─── Tipos de rascunho ────────────────────────────────────────────
@@ -57,6 +58,23 @@ async function fetchPlanetTraitKey(worldId: string | null): Promise<string | nul
     .maybeSingle()
   if (error || !data) return null
   return ((data as unknown) as { trait_key: string }).trait_key ?? null
+}
+
+/**
+ * Fase 6 — planeta afetado: uma expedição que falhou (abandono ou prazo)
+ * deixa o planeta com −15% de XP nas missões por 48 h. O servidor grava
+ * `player_worlds.affected_until`; aqui só se lê. Se a coluna ainda não
+ * existe (SQL da Fase 6 não aplicado), a leitura falha e vale "sem efeito".
+ */
+async function isPlanetAffected(worldId: string | null, userId: string): Promise<boolean> {
+  if (!worldId) return false
+  const { data, error } = await (supabase.from('player_worlds') as any)
+    .select('affected_until')
+    .eq('world_id', worldId)
+    .eq('player_id', userId)
+    .maybeSingle()
+  if (error || !data?.affected_until) return false
+  return new Date(data.affected_until).getTime() > Date.now()
 }
 
 type PlanetBonus = { xp: number; credits: number; note: string | null }
@@ -266,8 +284,16 @@ export async function toggleMission(
   const traitKey    = applyRewards ? await fetchPlanetTraitKey(mission.world_id) : null
   const planetBonus = applyRewards ? applyPlanetBonus(traitKey, mission, hoje, allMissions) : { xp: 0, credits: 0, note: null }
 
-  const xpGained      = baseXp + onTimeXp + bonus.xp + planetBonus.xp
+  const grossXp       = baseXp + onTimeXp + bonus.xp + planetBonus.xp
   const creditsGained = baseCredits + onTimeCredits + bonus.credits + planetBonus.credits
+
+  // Fase 6 — planeta afetado por expedição falha: −15% de XP (só o XP).
+  const affected = applyRewards && grossXp > 0
+    ? await isPlanetAffected(mission.world_id, state.user_id)
+    : false
+  const xpGained = affected
+    ? Math.round(grossXp * (1 - EXPEDITION_CONFIG.planetAffectedXpPenalty))
+    : grossXp
 
   // Recursos gerados (só se applyRewards)
   const missionType: MissionType = (mission as Mission & { type?: MissionType }).type ?? 'operacao'
@@ -326,8 +352,9 @@ export async function toggleMission(
   // já registradas em completed_at). Em missões comuns do Kanban só
   // o atributo PRINCIPAL do tripulante ativo ganha XP, sempre a 100%
   // — a variação secundário/terciário é para desafios narrativos e
-  // missões de bordo (Fases 5/6), que chamarão growCrewAttribute com
-  // outro role diretamente de lá.
+  // desafios de bordo (Fase 6). Lá o crescimento acontece no servidor
+  // (roll_expedition_node / roll_bridge_challenge), com o papel de cada
+  // atributo na ficha de cada tripulante.
   let attributeLevelUp: CompletionResult['attributeLevelUp'] = null
   if (applyRewards && state.crew_id) {
     const activeCrew = findCrew(state.crew_id)
@@ -362,7 +389,9 @@ export async function toggleMission(
     leveledUpTo,
     crewNote: bonus.note,
     crewId: bonus.note ? state.crew_id : null,  // só passa portrait se teve bônus
-    planetNote: planetBonus.note,
+    planetNote: affected
+      ? [planetBonus.note, 'Planeta afetado: −15% de XP por enquanto.'].filter(Boolean).join(' · ')
+      : planetBonus.note,
     attributeLevelUp,
   }
 }
