@@ -7,6 +7,7 @@
 // ============================================================
 
 import type { Mission, World } from '../types/database'
+import { localDateISO } from '../lib/date'
 import type {
   ApproachOption,
   BridgeMission,
@@ -35,17 +36,7 @@ import {
 const DAY_MS = 86_400_000
 const HOUR_MS = 3_600_000
 
-/**
- * Data LOCAL (yyyy-mm-dd). `due_date` é uma coluna `date` sem fuso, então
- * "hoje" tem de ser o dia do relógio do jogador — toISOString() devolve
- * o dia em UTC e, no Brasil, vira "amanhã" a partir das 21h.
- */
-export function localDateISO(d: Date = new Date()): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+export { localDateISO }
 
 // ─── Negligência ─────────────────────────────────────────────────
 

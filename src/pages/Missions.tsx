@@ -48,6 +48,7 @@ import {
 } from '../services/missionService'
 import { ACCENT, CREDITS_BY_PRIORITY, PRIORITY_LABEL, XP_BY_PRIORITY } from '../data/gameConfig'
 import { ATTRIBUTE_LABEL } from '../data/crew'
+import { localDateISO } from '../lib/date'
 import type { Mission, MissionLink, MissionStatus, MissionType, Priority, Recurrence, Subtask, Tag as TagType, World } from '../types/database'
 
 type KanbanCol = { key: MissionStatus; label: string; color: string; dot: string; sub: string; img: string }
@@ -596,7 +597,7 @@ function KanbanCard({
 }) {
   const accent = world ? (ACCENT[world.accent] ?? ACCENT.azure) : null
   const overdue = !isDone && mission.due_date &&
-    mission.due_date < new Date().toISOString().slice(0, 10)
+    mission.due_date < localDateISO()
 
   return (
     <article

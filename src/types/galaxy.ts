@@ -63,7 +63,7 @@ export const REGION_META: RegionMeta[] = [
     label: 'Setor Âncora',
     xp_required: 0,
     level_required: 1,
-    system_unlocked: 'Core loop — missões, tripulação, recompensas',
+    system_unlocked: 'Core loop — missões, tripulação, recompensas, desafios de campo e de bordo',
     order: 1,
   },
   {
@@ -71,7 +71,7 @@ export const REGION_META: RegionMeta[] = [
     label: 'Corredor Vivo',
     xp_required: 8000,
     level_required: 12,
-    system_unlocked: 'Desafios narrativos + fragmentos de lore',
+    system_unlocked: 'Eventos narrativos maiores + fragmentos de lore',
     order: 2,
   },
   {

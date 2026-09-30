@@ -1,4 +1,5 @@
 import type { Mission } from '../types/database'
+import { localDateISO } from '../lib/date'
 
 export type CrewId = 'dani' | 'aadan' | 'connor' | 'kira' | 'blanche' | 'iakop'
 
@@ -146,7 +147,7 @@ export function applyBonus(
 
     case 'connor': {
       if (!mission.due_date) return none
-      const hoje = new Date().toISOString().slice(0, 10)
+      const hoje = localDateISO()
       return mission.due_date >= hoje
         ? { xp: 6, credits: 0, note: 'Connor registrou: dentro do prazo.' }
         : none

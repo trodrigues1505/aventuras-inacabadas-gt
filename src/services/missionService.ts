@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { localDateISO } from '../lib/date'
 import type {
   Mission,
   MissionLink,
@@ -247,7 +248,7 @@ export async function toggleMission(
   const applyRewards = !mission.completed_at
 
   // Recompensa base — só aplica se for a primeira vez que vai para done
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = localDateISO()
   const baseXp       = applyRewards ? (XP_BY_PRIORITY[mission.priority] ?? 10)      : 0
   const baseCredits  = applyRewards ? (CREDITS_BY_PRIORITY[mission.priority] ?? 10) : 0
 
@@ -374,7 +375,7 @@ function nextDueDate(current: string | null, recurrence: Recurrence, days: numbe
     case 'monthly': base.setMonth(base.getMonth() + 1); break
     case 'custom':  base.setDate(base.getDate() + (days ?? 1)); break
   }
-  return base.toISOString().slice(0, 10)
+  return localDateISO(base)
 }
 
 async function spawnNextRecurrence(mission: Mission): Promise<void> {
