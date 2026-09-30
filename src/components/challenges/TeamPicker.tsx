@@ -1,4 +1,5 @@
 import { Check, HeartPulse } from 'lucide-react'
+import { CrewAvatar } from '../CrewAvatar'
 import { ACCENT } from '../../data/gameConfig'
 import { ATTRIBUTE_LABEL, CREW, type AttributeKey } from '../../data/crew'
 import { isAvailable } from '../../hooks/useCrewRoster'
@@ -65,25 +66,16 @@ export function TeamPicker({
                 on ? 'border-azure bg-azure/[0.05]' : 'border-line bg-surface hover:bg-raised'
               } ${off && !on ? 'cursor-not-allowed opacity-50 hover:bg-surface' : ''}`}
             >
-              <span
-                className={`relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full text-[12px] font-semibold ${acc.soft} ${acc.text}`}
-              >
-                {m.portrait}
-                <img
-                  src={`assets/crew/${m.id}.webp`}
-                  alt=""
-                  aria-hidden
-                  className="absolute inset-0 h-full w-full object-cover"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-              </span>
+              <CrewAvatar id={m.id} className="size-11" tone={`${acc.soft} ${acc.text}`} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className="text-[13.5px] font-semibold text-text">{m.name}</span>
-                  <span className="text-[12px] text-faint">{m.role}</span>
-                  {on && <Check size={14} className="ml-auto text-azure" aria-hidden />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-semibold text-text">{m.name}</span>
+                    <span className="block truncate text-[12px] text-faint" title={m.role}>
+                      {m.role}
+                    </span>
+                  </span>
+                  {on && <Check size={14} className="shrink-0 text-azure" aria-hidden />}
                 </span>
                 {back ? (
                   <span className="mt-1 flex items-center gap-1.5 text-[12px] text-bad">

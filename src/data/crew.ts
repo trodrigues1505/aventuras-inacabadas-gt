@@ -67,7 +67,7 @@ export const CREW: CrewMember[] = [
   {
     id: 'connor',
     name: 'Connor',
-    role: 'Medico',
+    role: 'Médico',
     line: 'A missao mais importante é a que te traz de volta.',
     perk: 'Concluir dentro do prazo rende +6 dados de exploracao.',
     accent: 'good',
@@ -97,7 +97,7 @@ export const CREW: CrewMember[] = [
   {
     id: 'iakop',
     name: 'Iakop',
-    role: 'Comunicacoes',
+    role: 'Comunicações',
     line: 'Toda mensagem tem destinatario. Toda missao, um porquê.',
     perk: 'Toda missao concluida rende +3 creditos.',
     accent: 'bad',
